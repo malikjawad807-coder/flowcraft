@@ -1,0 +1,198 @@
+import { WorkflowTemplate } from '@/types/workflow';
+
+export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
+  {
+    id: 'customer-support-ai-responder',
+    name: 'Customer Support AI Classifier & Gmail Responder',
+    description: 'Capture support tickets via form, classify sentiment & urgency with OpenAI, and send tailored replies via Gmail.',
+    category: 'Customer Support',
+    icon: 'Sparkles',
+    badge: 'Popular',
+    nodes: [
+      {
+        id: 'node_form_trigger',
+        type: 'input_form_trigger',
+        position: { x: 50, y: 180 },
+        data: {
+          id: 'node_form_trigger',
+          label: 'Customer Support Form',
+          category: 'trigger',
+          nodeType: 'input_form_trigger',
+          status: 'idle',
+          config: {
+            formTitle: 'Submit a Support Ticket',
+            formDescription: 'Provide your issue details below for immediate AI triage.',
+            fields: [
+              { id: 'f1', name: 'customerName', label: 'Full Name', type: 'text', defaultValue: 'Alex Morgan', required: true },
+              { id: 'f2', name: 'customerEmail', label: 'Email Address', type: 'email', defaultValue: 'alex.morgan@example.com', required: true },
+              { id: 'f3', name: 'issueCategory', label: 'Category', type: 'select', options: ['Billing', 'Bug Report', 'Feature Request', 'Other'], defaultValue: 'Feature Request', required: true },
+              { id: 'f4', name: 'message', label: 'Message / Issue Details', type: 'textarea', defaultValue: 'I would love to see an integration with Gmail to trigger automatic emails when a workflow finishes!', required: true },
+            ],
+            submittedValues: {
+              customerName: 'Alex Morgan',
+              customerEmail: 'alex.morgan@example.com',
+              issueCategory: 'Feature Request',
+              message: 'I would love to see an integration with Gmail to trigger automatic emails when a workflow finishes!',
+            },
+          },
+        },
+      },
+      {
+        id: 'node_openai_classifier',
+        type: 'openai_llm',
+        position: { x: 450, y: 150 },
+        data: {
+          id: 'node_openai_classifier',
+          label: 'OpenAI Ticket Analysis & Draft',
+          category: 'ai',
+          nodeType: 'openai_llm',
+          status: 'idle',
+          config: {
+            model: 'gpt-4o-mini',
+            systemPrompt: 'You are an elite customer success triage AI. Analyze the customer inquiry, categorize urgency, and write a warm, professional, actionable reply.',
+            userPrompt: 'Analyze this support ticket:\nCustomer: {{node_form_trigger.submittedValues.customerName}}\nEmail: {{node_form_trigger.submittedValues.customerEmail}}\nCategory: {{node_form_trigger.submittedValues.issueCategory}}\nMessage: {{node_form_trigger.submittedValues.message}}\n\nPlease produce a friendly, reassuring reply addressing their feature request.',
+            temperature: 0.7,
+            maxTokens: 500,
+            responseFormat: 'text',
+            mockFallback: true,
+          },
+        },
+      },
+      {
+        id: 'node_gmail_send',
+        type: 'gmail_send',
+        position: { x: 880, y: 180 },
+        data: {
+          id: 'node_gmail_send',
+          label: 'Gmail Auto-Response',
+          category: 'action',
+          nodeType: 'gmail_send',
+          status: 'idle',
+          config: {
+            to: '{{node_form_trigger.submittedValues.customerEmail}}',
+            cc: 'support-team@company.com',
+            subject: 'We received your feedback: {{node_form_trigger.submittedValues.issueCategory}} (Ticket #{{runId}})',
+            body: 'Hi {{node_form_trigger.submittedValues.customerName}},\n\nThank you for reaching out to us!\n\nHere is our initial update regarding your request:\n\n{{node_openai_classifier.output}}\n\nWarm regards,\nProduct Operations Team',
+            isHtml: false,
+            sendAsDraft: false,
+          },
+        },
+      },
+    ],
+    edges: [
+      {
+        id: 'e1-2',
+        source: 'node_form_trigger',
+        target: 'node_openai_classifier',
+        animated: true,
+        style: { stroke: '#7c3aed', strokeWidth: 2 },
+      },
+      {
+        id: 'e2-3',
+        source: 'node_openai_classifier',
+        target: 'node_gmail_send',
+        animated: true,
+        style: { stroke: '#dc2626', strokeWidth: 2 },
+      },
+    ],
+  },
+  {
+    id: 'document-resume-analyzer',
+    name: 'Document & Resume AI Screening with Gmail Alert',
+    description: 'Process uploaded resume documents, extract structured competencies and score candidates with OpenAI, then email the hiring manager.',
+    category: 'HR & Recruiting',
+    icon: 'FileText',
+    badge: 'New',
+    nodes: [
+      {
+        id: 'node_file_trigger',
+        type: 'file_upload_trigger',
+        position: { x: 60, y: 180 },
+        data: {
+          id: 'node_file_trigger',
+          label: 'Resume Document Upload',
+          category: 'trigger',
+          nodeType: 'file_upload_trigger',
+          status: 'idle',
+          config: {
+            allowedTypes: ['.pdf', '.txt', '.json', '.docx'],
+            maxSizeMb: 10,
+            sampleFileName: 'sarah_chen_staff_engineer.json',
+            sampleFileContent: JSON.stringify({
+              candidateName: 'Sarah Chen',
+              appliedRole: 'Senior Workflow Solutions Architect',
+              yearsExperience: 8,
+              coreSkills: ['Next.js', 'TypeScript', 'Node.js', 'Distributed Systems', 'LLM Agents'],
+              education: 'B.S. in Computer Science, Berkeley',
+              summary: 'Experienced architect specializing in low-code orchestration platforms, webhook streaming, and enterprise automation pipelines.'
+            }, null, 2),
+            parsedData: {
+              candidateName: 'Sarah Chen',
+              appliedRole: 'Senior Workflow Solutions Architect',
+              yearsExperience: 8,
+              coreSkills: ['Next.js', 'TypeScript', 'Node.js', 'Distributed Systems', 'LLM Agents'],
+              education: 'B.S. in Computer Science, Berkeley',
+            }
+          },
+        },
+      },
+      {
+        id: 'node_openai_resume',
+        type: 'openai_llm',
+        position: { x: 460, y: 150 },
+        data: {
+          id: 'node_openai_resume',
+          label: 'OpenAI Candidate Evaluation',
+          category: 'ai',
+          nodeType: 'openai_llm',
+          status: 'idle',
+          config: {
+            model: 'gpt-4o',
+            systemPrompt: 'You are an expert technical recruiter and talent evaluator. Analyze the resume profile, calculate fit score out of 100, and highlight key strengths.',
+            userPrompt: 'Evaluate this candidate profile for Senior Workflow Solutions Architect:\n{{node_file_trigger.sampleFileContent}}\n\nProvide: Match Score, Technical Strengths, and Recommendation for Interview.',
+            temperature: 0.5,
+            maxTokens: 600,
+            responseFormat: 'text',
+            mockFallback: true,
+          },
+        },
+      },
+      {
+        id: 'node_gmail_hiring_manager',
+        type: 'gmail_send',
+        position: { x: 880, y: 180 },
+        data: {
+          id: 'node_gmail_hiring_manager',
+          label: 'Gmail Candidate Report',
+          category: 'action',
+          nodeType: 'gmail_send',
+          status: 'idle',
+          config: {
+            to: 'recruiting-team@acme.ai',
+            cc: 'vp-engineering@acme.ai',
+            subject: 'Candidate Evaluation Ready: {{node_file_trigger.parsedData.candidateName}} - {{node_file_trigger.parsedData.appliedRole}}',
+            body: 'Dear Hiring Committee,\n\nOpenAI has analyzed the latest application submission.\n\nSummary Report:\n{{node_openai_resume.output}}\n\nAttached File: {{node_file_trigger.sampleFileName}}\n\nPlease review to schedule next steps.',
+            isHtml: false,
+            sendAsDraft: false,
+          },
+        },
+      },
+    ],
+    edges: [
+      {
+        id: 'e-file-ai',
+        source: 'node_file_trigger',
+        target: 'node_openai_resume',
+        animated: true,
+        style: { stroke: '#7c3aed', strokeWidth: 2 },
+      },
+      {
+        id: 'e-ai-gmail',
+        source: 'node_openai_resume',
+        target: 'node_gmail_hiring_manager',
+        animated: true,
+        style: { stroke: '#dc2626', strokeWidth: 2 },
+      },
+    ],
+  },
+];

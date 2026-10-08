@@ -1,0 +1,538 @@
+'use client';
+
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  Connection,
+  Edge,
+  Node,
+} from '@xyflow/react';
+import confetti from 'canvas-confetti';
+
+import { WorkflowCanvas } from '@/components/canvas/WorkflowCanvas';
+import { NodeLibrary } from '@/components/sidebar/NodeLibrary';
+import { BuilderHeader } from '@/components/header/BuilderHeader';
+import { NodeConfigDrawer } from '@/components/drawers/NodeConfigDrawer';
+import { ExecutionDrawer } from '@/components/drawers/ExecutionDrawer';
+import { TemplatesModal } from '@/components/modals/TemplatesModal';
+import { SettingsModal } from '@/components/modals/SettingsModal';
+import { SAMPLE_WORKFLOWS } from '@/lib/sample-workflows';
+import {
+  NodeType,
+  WorkflowNodeData,
+  WorkflowExecutionResult,
+  WorkflowTemplate,
+} from '@/types/workflow';
+
+export default function WorkflowBuilderPage() {
+  const initialWorkflow = SAMPLE_WORKFLOWS[0];
+
+  const [workflowName, setWorkflowName] = useState(initialWorkflow.name);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialWorkflow.nodes as Node[]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialWorkflow.edges as Edge[]);
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [executionResult, setExecutionResult] = useState<WorkflowExecutionResult | null>(null);
+  const [isLogDrawerOpen, setIsLogDrawerOpen] = useState(false);
+
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const [apiKeys, setApiKeys] = useState<{ openaiApiKey?: string; gmailToken?: string }>({});
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Connection handler
+  const onConnect = useCallback(
+    (params: Connection) => {
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: 'workflowEdge',
+            animated: true,
+            style: { stroke: '#475569', strokeWidth: 2 },
+          },
+          eds
+        )
+      );
+    },
+    [setEdges]
+  );
+
+  // Find active node object
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    const n = nodes.find((node) => node.id === selectedNodeId);
+    return n ? (n.data as unknown as WorkflowNodeData) : null;
+  }, [selectedNodeId, nodes]);
+
+  // Compute upstream nodes for selected node to expose variables
+  const upstreamNodes = useMemo(() => {
+    if (!selectedNodeId) return [];
+    const incomingEdges = edges.filter((e) => e.target === selectedNodeId);
+    const sourceIds = incomingEdges.map((e) => e.source);
+    return nodes
+      .filter((n) => sourceIds.includes(n.id))
+      .map((n) => n.data as unknown as WorkflowNodeData);
+  }, [selectedNodeId, edges, nodes]);
+
+  // Node Click
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setSelectedNodeId(node.id);
+  }, []);
+
+  // Pane Click
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  // Factory to create fresh nodes
+  const createNewNode = useCallback(
+    (type: NodeType, position?: { x: number; y: number }): Node => {
+      const id = `node_${type}_${Math.random().toString(36).substring(2, 7)}`;
+      const pos = position || {
+        x: 100 + Math.random() * 300,
+        y: 100 + Math.random() * 250,
+      };
+
+      let category: WorkflowNodeData['category'] = 'logic';
+      let label = 'New Node';
+      let config: Record<string, any> = {};
+
+      switch (type) {
+        case 'input_form_trigger':
+          category = 'trigger';
+          label = 'Input Form';
+          config = {
+            formTitle: 'User Feedback / Lead Intake',
+            formDescription: 'Collect data directly via canvas form',
+            fields: [
+              { id: 'f1', name: 'name', label: 'Name', type: 'text', defaultValue: 'Jordan Lee', required: true },
+              { id: 'f2', name: 'email', label: 'Email', type: 'email', defaultValue: 'jordan@example.com', required: true },
+              { id: 'f3', name: 'notes', label: 'Inquiry Details', type: 'textarea', defaultValue: 'Inquiring about workflow automation setup.', required: true },
+            ],
+            submittedValues: {
+              name: 'Jordan Lee',
+              email: 'jordan@example.com',
+              notes: 'Inquiring about workflow automation setup.',
+            },
+          };
+          break;
+
+        case 'file_upload_trigger':
+          category = 'trigger';
+          label = 'File Upload';
+          config = {
+            sampleFileName: 'incoming_payload.json',
+            sampleFileContent: JSON.stringify({ documentId: 'doc_101', status: 'pending_review', author: 'Alex' }, null, 2),
+            parsedData: { documentId: 'doc_101', status: 'pending_review', author: 'Alex' },
+          };
+          break;
+
+        case 'webhook_trigger':
+          category = 'trigger';
+          label = 'Webhook Event';
+          config = {
+            endpoint: '/api/v1/webhook',
+            payload: { event: 'user_created', userId: 'u_123', email: 'hello@example.com' },
+          };
+          break;
+
+        case 'openai_llm':
+          category = 'ai';
+          label = 'OpenAI Reasoning';
+          config = {
+            model: 'gpt-4o-mini',
+            systemPrompt: 'You are an intelligent workflow automation AI.',
+            userPrompt: 'Summarize and extract key action items from upstream input.',
+            temperature: 0.7,
+            maxTokens: 500,
+            mockFallback: true,
+          };
+          break;
+
+        case 'openai_classifier':
+          category = 'ai';
+          label = 'AI Sentiment Router';
+          config = {
+            model: 'gpt-4o-mini',
+            systemPrompt: 'You are an AI sentiment and priority classifier.',
+            userPrompt: 'Determine priority (High / Medium / Low) and tone of the input message.',
+            temperature: 0.3,
+            maxTokens: 300,
+            mockFallback: true,
+          };
+          break;
+
+        case 'gmail_send':
+          category = 'action';
+          label = 'Gmail Dispatch';
+          config = {
+            to: 'recipient@example.com',
+            subject: 'Automated Notification',
+            body: 'Hello,\n\nThis is an automated workflow confirmation message.',
+            isHtml: false,
+            sendAsDraft: false,
+          };
+          break;
+
+        case 'code_transform':
+          category = 'logic';
+          label = 'Code Transform';
+          config = {
+            code: 'return { ...input, timestamp: Date.now(), processed: true };',
+          };
+          break;
+
+        case 'condition_filter':
+          category = 'logic';
+          label = 'If / Else Branch';
+          config = {
+            field: 'status',
+            operator: 'equals',
+            value: 'active',
+          };
+          break;
+      }
+
+      return {
+        id,
+        type,
+        position: pos,
+        data: {
+          id,
+          label,
+          category,
+          nodeType: type,
+          status: 'idle',
+          config,
+        },
+      };
+    },
+    []
+  );
+
+  // Add node from library
+  const handleAddNode = useCallback(
+    (type: NodeType) => {
+      const newNode = createNewNode(type);
+      setNodes((nds) => [...nds, newNode]);
+      setSelectedNodeId(newNode.id);
+    },
+    [createNewNode, setNodes]
+  );
+
+  // Drop node onto canvas coordinates
+  const handleDropNode = useCallback(
+    (type: NodeType, position: { x: number; y: number }) => {
+      const newNode = createNewNode(type, position);
+      setNodes((nds) => [...nds, newNode]);
+      setSelectedNodeId(newNode.id);
+    },
+    [createNewNode, setNodes]
+  );
+
+  // Update node data
+  const handleUpdateNode = useCallback(
+    (nodeId: string, updatedData: Partial<WorkflowNodeData>) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === nodeId) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                ...updatedData,
+              },
+            };
+          }
+          return n;
+        })
+      );
+    },
+    [setNodes]
+  );
+
+  // Delete node
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      if (selectedNodeId === nodeId) {
+        setSelectedNodeId(null);
+      }
+    },
+    [selectedNodeId, setNodes, setEdges]
+  );
+
+  // Run Workflow execution engine
+  const handleRunWorkflow = useCallback(async () => {
+    if (nodes.length === 0 || isRunning) return;
+
+    setIsRunning(true);
+    // Mark all nodes as running
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          status: 'running',
+        },
+      }))
+    );
+
+    // Mark edges as running animation
+    setEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        data: {
+          ...e.data,
+          isRunning: true,
+        },
+      }))
+    );
+
+    try {
+      const res = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes,
+          edges,
+          apiKeys,
+        }),
+      });
+
+      const result: WorkflowExecutionResult = await res.json();
+      setExecutionResult(result);
+      setIsLogDrawerOpen(true);
+
+      // Map node results back to canvas
+      const logMap = new Map(result.logs.map((l) => [l.nodeId, l]));
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          const log = logMap.get(n.id);
+          if (log) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                status: log.status,
+                executionDuration: log.durationMs,
+                lastRunOutput: log.outputPayload,
+                lastRunError: log.error,
+              },
+            };
+          }
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              status: result.success ? 'success' : 'idle',
+            },
+          };
+        })
+      );
+
+      // Celebrate success!
+      if (result.success) {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.15 },
+          colors: ['#ff6d5a', '#7c3aed', '#10b981', '#38bdf8'],
+        });
+      }
+    } catch (err: any) {
+      console.error('Execution error:', err);
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, status: 'error' },
+        }))
+      );
+    } finally {
+      setIsRunning(false);
+      setEdges((eds) =>
+        eds.map((e) => ({
+          ...e,
+          data: {
+            ...e.data,
+            isRunning: false,
+            isSuccess: true,
+          },
+        }))
+      );
+    }
+  }, [nodes, edges, apiKeys, isRunning, setNodes, setEdges]);
+
+  // Keyboard shortcut Ctrl+Enter to run
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleRunWorkflow();
+      }
+      if (e.key === 'Escape') {
+        setSelectedNodeId(null);
+        setIsLogDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRunWorkflow]);
+
+  // Load Template
+  const handleSelectTemplate = (template: WorkflowTemplate) => {
+    setWorkflowName(template.name);
+    setNodes(template.nodes as Node[]);
+    setEdges(template.edges as Edge[]);
+    setSelectedNodeId(null);
+    setExecutionResult(null);
+  };
+
+  // Export Workflow as JSON
+  const handleExportWorkflow = () => {
+    const data = {
+      name: workflowName,
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      nodes,
+      edges,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_workflow.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import Workflow JSON
+  const handleImportWorkflow = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.nodes && Array.isArray(json.nodes)) {
+          setWorkflowName(json.name || 'Imported Workflow');
+          setNodes(json.nodes);
+          setEdges(json.edges || []);
+          setSelectedNodeId(null);
+          setExecutionResult(null);
+        } else {
+          alert('Invalid workflow file format: Missing nodes array');
+        }
+      } catch (err) {
+        alert('Could not parse JSON file');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Clear workflow
+  const handleClearWorkflow = () => {
+    if (confirm('Are you sure you want to clear the canvas?')) {
+      setNodes([]);
+      setEdges([]);
+      setSelectedNodeId(null);
+      setExecutionResult(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0b0f17] select-none">
+      {/* Top Header */}
+      <BuilderHeader
+        workflowName={workflowName}
+        onRenameWorkflow={setWorkflowName}
+        isRunning={isRunning}
+        onRunWorkflow={handleRunWorkflow}
+        onOpenTemplates={() => setIsTemplatesOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onToggleLogs={() => setIsLogDrawerOpen(!isLogDrawerOpen)}
+        onExportWorkflow={handleExportWorkflow}
+        onImportWorkflow={handleImportWorkflow}
+        onClearWorkflow={handleClearWorkflow}
+        hasLogs={executionResult !== null}
+        nodeCount={nodes.length}
+      />
+
+      {/* Main Workspace: Sidebar + Canvas */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Node Library Sidebar */}
+        <NodeLibrary onAddNode={handleAddNode} />
+
+        {/* React Flow Canvas */}
+        <main className="flex-1 h-full relative">
+          <WorkflowCanvas
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            onDropNode={handleDropNode}
+          />
+        </main>
+
+        {/* Node Configuration Drawer (Right) */}
+        <NodeConfigDrawer
+          node={selectedNode}
+          upstreamNodes={upstreamNodes}
+          isOpen={selectedNode !== null}
+          onClose={() => setSelectedNodeId(null)}
+          onUpdateNode={handleUpdateNode}
+          onDeleteNode={handleDeleteNode}
+          apiKeys={apiKeys}
+        />
+      </div>
+
+      {/* Bottom Execution Trace Drawer */}
+      <ExecutionDrawer
+        result={executionResult}
+        isOpen={isLogDrawerOpen && executionResult !== null}
+        onClose={() => setIsLogDrawerOpen(false)}
+      />
+
+      {/* Hidden File Input for Import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Templates Modal */}
+      <TemplatesModal
+        isOpen={isTemplatesOpen}
+        onClose={() => setIsTemplatesOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        apiKeys={apiKeys}
+        onSaveKeys={setApiKeys}
+      />
+    </div>
+  );
+}
