@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import WorkflowsPage from './pages/WorkflowsPage.jsx';
+import EditorPage from './pages/EditorPage.jsx';
 import LeadsPage from './pages/LeadsPage.jsx';
 import CredentialsPage from './pages/CredentialsPage.jsx';
 import ExecutionsPage from './pages/ExecutionsPage.jsx';
@@ -57,6 +58,16 @@ export default function App() {
 
   if (!user) {
     return <LoginPage onLoginSuccess={(u) => setUser(u)} />;
+  }
+
+  // If in canvas editor mode, render full screen canvas
+  if (activeWorkflowId) {
+    return (
+      <EditorPage
+        workflowId={activeWorkflowId}
+        onBack={() => setActiveWorkflowId(null)}
+      />
+    );
   }
 
   return (

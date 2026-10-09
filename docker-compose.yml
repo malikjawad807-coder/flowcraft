@@ -1,0 +1,52 @@
+services:
+  flowcart:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/data
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@flowcart.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin12345}
+      - JWT_SECRET=${JWT_SECRET:-flowcart-jwt-super-secret-key-32chars!!}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-flowcart-smtp-encryption-key-32chars!}
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-http://localhost:3001}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+    volumes:
+      - flowcart_data:/data
+    networks:
+      - flowcart_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - flowcart_network
+    depends_on:
+      - flowcart
+
+volumes:
+  flowcart_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  flowcart_network:
+    driver: bridge

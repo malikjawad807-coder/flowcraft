@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Save, Key, AlertCircle, CheckCircle2, Download, Loader2 } from 'lucide-react';
+import { Settings, Shield, Save, Key, AlertCircle, CheckCircle2, Download, Database, Cpu } from 'lucide-react';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
     daily_send_limit: '30',
     default_wait_seconds: '45',
     unsubscribe_text: 'If you wish to unsubscribe, click here: {{unsubscribe_url}}',
+    llm_provider: 'openai',
+    llm_api_key: '',
   });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -54,7 +56,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setPwStatus({ type: 'loading', msg: 'Updating password...' });
     try {
-      const res = await fetch('/api/auth/change-password', {
+      const res = await fetch('/api/settings/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -70,6 +72,10 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDownloadBackup = () => {
+    window.location.href = '/api/settings/backup';
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <div className="pb-6 border-b border-[#2A2A2A]">
@@ -77,14 +83,14 @@ export default function SettingsPage() {
           <Settings className="w-5 h-5 text-[#E10600]" />
           System Settings
         </h1>
-        <p className="text-xs text-[#888888] mt-1">
-          Email safety limits, delivery pacing, unsubscribe compliance, and administrator credentials.
+        <p className="text-xs text-[#888888] mt-1 font-mono">
+          Email safety limits, delivery pacing, unsubscribe compliance, AI models, and database backups.
         </p>
       </div>
 
       {/* Safety & Delivery Settings */}
-      <div className="bg-[#141414] border border-[#2A2A2A] p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-white font-mono mb-4 flex items-center gap-2">
+      <div className="bg-[#141414] border border-[#2A2A2A] p-6 font-mono text-xs">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
           <Shield className="w-4 h-4 text-[#E10600]" />
           Email Safety & Delivery Limits
         </h2>
@@ -92,10 +98,10 @@ export default function SettingsPage() {
         {saveStatus && (
           <div className={`mb-4 p-3 text-xs flex items-center gap-2 border ${
             saveStatus.type === 'error'
-              ? 'border-[#E10600] text-[#E10600] bg-[#0A0A0A]'
-              : 'border-[#2A2A2A] text-white bg-[#0A0A0A]'
+              ? 'border-[#E10600] text-[#FF4D4D] bg-[#1C0000]'
+              : 'border-[#10B981] text-[#34D399] bg-[#001A09]'
           }`}>
-            {saveStatus.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4 text-[#E10600]" />}
+            {saveStatus.type === 'error' ? <AlertCircle className="w-4 h-4 text-[#E10600]" /> : <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
             <span>{saveStatus.msg}</span>
           </div>
         )}
@@ -128,7 +134,7 @@ export default function SettingsPage() {
                 className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] text-sm text-white px-3 py-2 outline-none font-mono"
               />
               <p className="text-[11px] text-[#888888] mt-1 font-mono">
-                Delay between outbound SMTP sends. Default: 45s.
+                Pacing delay between outbound SMTP sends. Default: 45s.
               </p>
             </div>
           </div>
@@ -148,9 +154,40 @@ export default function SettingsPage() {
             </p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-[#2A2A2A]">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-[#888888] mb-2 font-mono">
+                LLM Provider
+              </label>
+              <select
+                value={settings.llm_provider || 'openai'}
+                onChange={(e) => setSettings({ ...settings, llm_provider: e.target.value })}
+                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] text-sm text-white px-3 py-2 outline-none font-mono"
+              >
+                <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
+                <option value="openrouter">OpenRouter (Multi-model)</option>
+                <option value="groq">Groq (Llama-3, fast)</option>
+                <option value="anthropic">Anthropic Claude</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-[#888888] mb-2 font-mono">
+                LLM API Key
+              </label>
+              <input
+                type="password"
+                value={settings.llm_api_key || ''}
+                onChange={(e) => setSettings({ ...settings, llm_api_key: e.target.value })}
+                placeholder="sk-..."
+                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] text-sm text-white px-3 py-2 outline-none font-mono"
+              />
+            </div>
+          </div>
+
           <button
             type="submit"
-            className="bg-[#E10600] hover:bg-[#FF1A1A] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
+            className="bg-[#E10600] hover:bg-[#FF1A1A] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors font-mono"
           >
             <Save className="w-3.5 h-3.5" />
             <span>Save Delivery Settings</span>
@@ -158,9 +195,29 @@ export default function SettingsPage() {
         </form>
       </div>
 
+      {/* Database Backup Section */}
+      <div className="bg-[#141414] border border-[#2A2A2A] p-6 font-mono text-xs">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-white mb-2 flex items-center gap-2">
+          <Database className="w-4 h-4 text-[#E10600]" />
+          SQLite Database Snapshot
+        </h2>
+        <p className="text-[11px] text-[#888888] mb-4">
+          Download a standalone binary backup copy of your <code>/data/flowcart.db</code> database, containing all workflows, leads, encrypted credentials, executions, and agent memories.
+        </p>
+
+        <button
+          type="button"
+          onClick={handleDownloadBackup}
+          className="bg-[#0A0A0A] border border-[#2A2A2A] hover:border-[#E10600] text-white px-4 py-2 text-xs uppercase font-semibold tracking-wider flex items-center gap-2 transition-colors"
+        >
+          <Download className="w-3.5 h-3.5 text-[#E10600]" />
+          <span>Download flowcart.db Snapshot</span>
+        </button>
+      </div>
+
       {/* Change Password */}
-      <div className="bg-[#141414] border border-[#2A2A2A] p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-white font-mono mb-4 flex items-center gap-2">
+      <div className="bg-[#141414] border border-[#2A2A2A] p-6 font-mono text-xs">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
           <Key className="w-4 h-4 text-[#E10600]" />
           Administrator Password
         </h2>
@@ -168,10 +225,10 @@ export default function SettingsPage() {
         {pwStatus && (
           <div className={`mb-4 p-3 text-xs flex items-center gap-2 border ${
             pwStatus.type === 'error'
-              ? 'border-[#E10600] text-[#E10600] bg-[#0A0A0A]'
-              : 'border-[#2A2A2A] text-white bg-[#0A0A0A]'
+              ? 'border-[#E10600] text-[#FF4D4D] bg-[#1C0000]'
+              : 'border-[#10B981] text-[#34D399] bg-[#001A09]'
           }`}>
-            {pwStatus.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4 text-[#E10600]" />}
+            {pwStatus.type === 'error' ? <AlertCircle className="w-4 h-4 text-[#E10600]" /> : <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
             <span>{pwStatus.msg}</span>
           </div>
         )}
@@ -206,9 +263,9 @@ export default function SettingsPage() {
 
           <button
             type="submit"
-            className="bg-[#141414] border border-[#2A2A2A] hover:border-[#E10600] hover:text-[#E10600] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
+            className="bg-[#141414] border border-[#2A2A2A] hover:border-[#E10600] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
           >
-            <Key className="w-3.5 h-3.5" />
+            <Key className="w-3.5 h-3.5 text-[#E10600]" />
             <span>Update Password</span>
           </button>
         </form>
