@@ -1,87 +1,235 @@
 import React from 'react';
 import {
-  GitBranch,
+  Sparkles,
+  Home,
+  User,
   Users,
   Key,
-  Activity,
-  Bot,
+  Shield,
+  Layers,
+  BarChart3,
+  HelpCircle,
   Settings,
+  Plus,
+  Search,
+  PanelLeftClose,
+  ChevronRight,
   LogOut,
-  Mail,
+  Clock,
+  Activity
 } from 'lucide-react';
-
-const NAV_ITEMS = [
-  { id: 'workflows', label: 'Workflows', icon: GitBranch },
-  { id: 'leads', label: 'Leads', icon: Users },
-  { id: 'credentials', label: 'Credentials', icon: Key },
-  { id: 'executions', label: 'Executions', icon: Activity },
-  { id: 'agent', label: 'Agent', icon: Bot },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
 
 export default function Sidebar({ activeTab, onSelectTab, user, onLogout }) {
   return (
-    <aside className="w-64 bg-[#141414] border-r border-[#2A2A2A] h-screen flex flex-col justify-between shrink-0 select-none">
-      {/* Top Branding */}
+    <aside className="w-60 bg-[#16171b] border-r border-[#22242a] h-screen flex flex-col justify-between shrink-0 select-none text-[#c2c4cf] font-sans text-xs">
       <div>
-        <div className="h-16 px-6 border-b border-[#2A2A2A] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-3.5 h-3.5 bg-[#E10600]" />
-            <span className="font-bold tracking-wider text-base uppercase text-white font-mono">
-              FlowCart
-            </span>
+        {/* Top Trial & Execution Quota Bar */}
+        <div className="px-3.5 pt-3 pb-2 text-[11px] text-[#8c90a0] border-b border-[#22242a]/60">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5 text-white font-medium">
+              <Clock className="w-3.5 h-3.5 text-[#ff6d5a]" />
+              <span>14 days left</span>
+            </div>
+            <div className="w-16 h-1.5 bg-[#262830] rounded-full overflow-hidden">
+              <div className="w-1/3 h-full bg-[#ff6d5a] rounded-full" />
+            </div>
           </div>
-          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 border border-[#2A2A2A] text-[#888888]">
-            v1.0
-          </span>
+          <div className="text-[10px] text-[#727582] font-mono">
+            0/1000 Executions
+          </div>
         </div>
 
-        {/* Navigation list */}
-        <nav className="p-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium uppercase tracking-wider transition-colors text-left ${
-                  isActive
-                    ? 'bg-[#E10600] text-white font-semibold'
-                    : 'text-[#888888] hover:text-white hover:bg-[#0A0A0A]'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Brand & Action Header */}
+        <div className="px-3.5 py-3 flex items-center justify-between border-b border-[#22242a]">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => onSelectTab('workflows')}>
+            {/* Authentic n8n logo with nodes */}
+            <div className="flex items-center gap-1">
+              <svg className="w-6 h-6 text-[#ff6d5a]" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="3" fill="#ff6d5a" />
+                <circle cx="12" cy="7" r="3" fill="#ea4b71" />
+                <circle cx="19" cy="12" r="3" fill="#ff6d5a" />
+                <circle cx="12" cy="17" r="3" fill="#ea4b71" />
+                <path d="M7.5 10.5L9.5 8.5M14.5 8.5L16.5 10.5M16.5 13.5L14.5 15.5M9.5 15.5L7.5 13.5" stroke="#ff6d5a" strokeWidth="1.5" />
+              </svg>
+              <span className="font-bold text-white text-base tracking-tight font-sans">
+                n8n
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 text-[#8c90a0]">
+            <button
+              onClick={() => onSelectTab('workflows')}
+              className="p-1 hover:text-white hover:bg-[#22242b] rounded transition-colors"
+              title="New workflow"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              className="p-1 hover:text-white hover:bg-[#22242b] rounded transition-colors"
+              title="Search"
+            >
+              <Search className="w-3.5 h-3.5" />
+            </button>
+            <button
+              className="p-1 hover:text-white hover:bg-[#22242b] rounded transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Primary Navigation */}
+        <nav className="p-2 space-y-0.5">
+          {/* Assistant (Agent) */}
+          <button
+            onClick={() => onSelectTab('agent')}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left ${
+              activeTab === 'agent'
+                ? 'bg-[#22242b] text-white font-medium'
+                : 'text-[#c2c4cf] hover:text-white hover:bg-[#1c1d22]'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-[#ea4b71]" />
+              <span>Assistant</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 bg-[#7d53d6]/25 border border-[#7d53d6]/50 text-[#c4b5fd] rounded font-medium">
+              Preview
+            </span>
+          </button>
+
+          {/* Overview */}
+          <button
+            onClick={() => onSelectTab('workflows')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+              activeTab === 'overview'
+                ? 'bg-[#22242b] text-white font-medium'
+                : 'text-[#c2c4cf] hover:text-white hover:bg-[#1c1d22]'
+            }`}
+          >
+            <Home className="w-4 h-4 text-[#8c90a0]" />
+            <span>Overview</span>
+          </button>
+
+          {/* Personal (Workflows & Canvas) */}
+          <button
+            onClick={() => onSelectTab('workflows')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+              activeTab === 'workflows'
+                ? 'bg-[#22242b] text-white font-medium'
+                : 'text-[#c2c4cf] hover:text-white hover:bg-[#1c1d22]'
+            }`}
+          >
+            <User className="w-4 h-4 text-[#ff6d5a]" />
+            <span>Personal</span>
+          </button>
+
+          {/* Leads */}
+          <button
+            onClick={() => onSelectTab('leads')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+              activeTab === 'leads'
+                ? 'bg-[#22242b] text-white font-medium'
+                : 'text-[#c2c4cf] hover:text-white hover:bg-[#1c1d22]'
+            }`}
+          >
+            <Users className="w-4 h-4 text-[#8c90a0]" />
+            <span>Leads</span>
+          </button>
+
+          {/* Credentials */}
+          <button
+            onClick={() => onSelectTab('credentials')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+              activeTab === 'credentials'
+                ? 'bg-[#22242b] text-white font-medium'
+                : 'text-[#c2c4cf] hover:text-white hover:bg-[#1c1d22]'
+            }`}
+          >
+            <Key className="w-4 h-4 text-[#8c90a0]" />
+            <span>Credentials</span>
+          </button>
         </nav>
       </div>
 
-      {/* User Info & Logout */}
-      <div className="p-4 border-t border-[#2A2A2A] bg-[#0A0A0A]">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-6 h-6 bg-[#2A2A2A] border border-[#2A2A2A] flex items-center justify-center text-[10px] text-white font-mono shrink-0">
-              A
-            </div>
-            <div className="truncate">
-              <p className="text-xs font-mono text-white truncate leading-none">
-                {user?.email || 'admin@flowcart.local'}
-              </p>
-              <p className="text-[10px] text-[#888888] font-mono mt-1">Administrator</p>
-            </div>
-          </div>
-        </div>
+      {/* Secondary Bottom Navigation */}
+      <div className="p-2 border-t border-[#22242a] space-y-0.5">
+        <button
+          onClick={() => onSelectTab('settings')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+            activeTab === 'admin'
+              ? 'bg-[#22242b] text-white font-medium'
+              : 'text-[#8c90a0] hover:text-white hover:bg-[#1c1d22]'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>Admin Panel</span>
+        </button>
 
         <button
-          onClick={onLogout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-[#2A2A2A] hover:border-[#E10600] hover:text-[#E10600] text-[#888888] text-xs font-mono uppercase tracking-wider transition-colors"
+          onClick={() => onSelectTab('workflows')}
+          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left text-[#8c90a0] hover:text-white hover:bg-[#1c1d22]"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out</span>
+          <Layers className="w-4 h-4" />
+          <span>Templates</span>
         </button>
+
+        <button
+          onClick={() => onSelectTab('executions')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-left ${
+            activeTab === 'executions'
+              ? 'bg-[#22242b] text-white font-medium'
+              : 'text-[#8c90a0] hover:text-white hover:bg-[#1c1d22]'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Insights</span>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('agent')}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left text-[#8c90a0] hover:text-white hover:bg-[#1c1d22]"
+        >
+          <div className="flex items-center gap-2.5">
+            <HelpCircle className="w-4 h-4" />
+            <span>Help</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-[#555866]" />
+        </button>
+
+        <button
+          onClick={() => onSelectTab('settings')}
+          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left ${
+            activeTab === 'settings'
+              ? 'bg-[#22242b] text-white font-medium'
+              : 'text-[#8c90a0] hover:text-white hover:bg-[#1c1d22]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Settings className="w-4 h-4" />
+            <span>Settings</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-[#555866]" />
+        </button>
+
+        {/* User profile & logout */}
+        <div className="pt-2 mt-2 border-t border-[#22242a] flex items-center justify-between px-2 text-[11px]">
+          <div className="flex items-center gap-2 truncate">
+            <div className="w-5 h-5 rounded-full bg-[#ff6d5a] flex items-center justify-center text-white font-bold text-[10px]">
+              {user?.email ? user.email.slice(0, 1).toUpperCase() : 'A'}
+            </div>
+            <span className="truncate text-[#c2c4cf]">{user?.email || 'admin@flowcart.local'}</span>
+          </div>
+          <button
+            onClick={onLogout}
+            className="p-1 hover:text-[#ff6d5a] text-[#727582]"
+            title="Log out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </aside>
   );

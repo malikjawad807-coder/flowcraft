@@ -33,30 +33,36 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0A0A0A] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#141414] border border-[#2A2A2A] rounded-none p-8 shadow-2xl">
+    <div className="min-h-screen w-full bg-[#101114] flex items-center justify-center p-4 select-none">
+      <div className="w-full max-w-md bg-[#16171b] border border-[#22242a] rounded-2xl p-8 shadow-2xl">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-3 h-3 bg-[#E10600]" />
-            <h1 className="text-xl font-bold tracking-wider uppercase text-white">FlowCart</h1>
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <svg className="w-8 h-8 text-[#ff6d5a]" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="3" fill="#ff6d5a" />
+              <circle cx="12" cy="7" r="3" fill="#ea4b71" />
+              <circle cx="19" cy="12" r="3" fill="#ff6d5a" />
+              <circle cx="12" cy="17" r="3" fill="#ea4b71" />
+              <path d="M7.5 10.5L9.5 8.5M14.5 8.5L16.5 10.5M16.5 13.5L14.5 15.5M9.5 15.5L7.5 13.5" stroke="#ff6d5a" strokeWidth="1.5" />
+            </svg>
+            <h1 className="text-2xl font-bold tracking-tight text-white font-sans">n8n</h1>
           </div>
-          <p className="text-xs text-[#888888]">
-            Email Automation Engine • Admin Console
+          <p className="text-xs text-[#8c90a0]">
+            Sign in to your workflow automation studio
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-[#0A0A0A] border border-[#E10600] text-[#E10600] text-xs flex items-center gap-2">
+          <div className="mb-6 p-3 bg-[#2a1717] border border-[#EF4444] text-[#ff8080] text-xs rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider text-[#888888] mb-2 font-mono">
-              Admin Email
+            <label className="block text-xs font-medium text-[#8c90a0] mb-1.5">
+              Email
             </label>
             <div className="relative">
               <input
@@ -64,15 +70,15 @@ export default function LoginPage({ onLoginSuccess }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] text-sm text-white px-3 py-2.5 outline-none font-mono transition-colors"
+                className="w-full bg-[#101114] border border-[#26282e] focus:border-[#ff6d5a] text-sm text-white px-3.5 py-2.5 rounded-lg outline-none transition-colors"
                 placeholder="admin@flowcart.local"
               />
-              <Mail className="w-4 h-4 text-[#888888] absolute right-3 top-3 pointer-events-none" />
+              <Mail className="w-4 h-4 text-[#727582] absolute right-3 top-3 pointer-events-none" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider text-[#888888] mb-2 font-mono">
+            <label className="block text-xs font-medium text-[#8c90a0] mb-1.5">
               Password
             </label>
             <div className="relative">
@@ -81,35 +87,35 @@ export default function LoginPage({ onLoginSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] text-sm text-white px-3 py-2.5 outline-none font-mono transition-colors"
+                className="w-full bg-[#101114] border border-[#26282e] focus:border-[#ff6d5a] text-sm text-white px-3.5 py-2.5 rounded-lg outline-none transition-colors"
                 placeholder="••••••••"
               />
-              <Lock className="w-4 h-4 text-[#888888] absolute right-3 top-3 pointer-events-none" />
+              <Lock className="w-4 h-4 text-[#727582] absolute right-3 top-3 pointer-events-none" />
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#E10600] hover:bg-[#FF1A1A] text-white py-2.5 px-4 font-semibold text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors disabled:opacity-50 mt-2"
+            className="w-full bg-[#ff6d5a] hover:bg-[#ea4b71] text-white py-2.5 px-4 font-semibold text-xs rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 mt-2 shadow-lg"
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Authenticating...</span>
+                <span>Signing in...</span>
               </>
             ) : (
               <>
-                <span>Sign In to FlowCart</span>
+                <span>Sign in</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-[#2A2A2A] text-center">
-          <p className="text-[11px] text-[#888888] font-mono">
-            Default credentials: admin@flowcart.local / admin12345
+        <div className="mt-8 pt-6 border-t border-[#22242a] text-center">
+          <p className="text-[11px] text-[#727582]">
+            Default admin: admin@flowcart.local / admin12345
           </p>
         </div>
       </div>

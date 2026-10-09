@@ -14,7 +14,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState('workflows');
-  const [activeWorkflowId, setActiveWorkflowId] = useState(null);
+  // Default to 'new' so it opens the exact n8n canvas view from the screenshot
+  const [activeWorkflowId, setActiveWorkflowId] = useState('new');
 
   useEffect(() => {
     checkAuth();
@@ -49,8 +50,8 @@ export default function App() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center text-xs font-mono text-[#888888] gap-2">
-        <Loader2 className="w-4 h-4 animate-spin text-[#E10600]" />
+      <div className="min-h-screen bg-[#101114] flex items-center justify-center text-xs font-mono text-[#8c90a0] gap-2">
+        <Loader2 className="w-4 h-4 animate-spin text-[#ff6d5a]" />
         <span>Initializing FlowCart...</span>
       </div>
     );
@@ -60,39 +61,62 @@ export default function App() {
     return <LoginPage onLoginSuccess={(u) => setUser(u)} />;
   }
 
-  // If in canvas editor mode, render full screen canvas
-  if (activeWorkflowId) {
-    return (
-      <EditorPage
-        workflowId={activeWorkflowId}
-        onBack={() => setActiveWorkflowId(null)}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-screen w-full bg-[#0A0A0A] text-white font-sans overflow-hidden">
-      {/* Fixed Sidebar */}
+    <div className="flex h-screen w-full bg-[#101114] text-white font-sans overflow-hidden">
+      {/* Fixed Authentic n8n Sidebar */}
       <Sidebar
         activeTab={activeTab}
         onSelectTab={(tab) => {
           setActiveTab(tab);
-          setActiveWorkflowId(null);
+          if (tab === 'workflows') {
+            setActiveWorkflowId('new');
+          } else {
+            setActiveWorkflowId(null);
+          }
         }}
         user={user}
         onLogout={handleLogout}
       />
 
-      {/* Main Content View */}
-      <main className="flex-1 h-screen overflow-y-auto bg-[#0A0A0A]">
+      {/* Main Content View (Canvas Editor or specific management page) */}
+      <main className="flex-1 h-screen overflow-hidden bg-[#101114]">
         {activeTab === 'workflows' && (
-          <WorkflowsPage onOpenEditor={(id) => setActiveWorkflowId(id)} />
+          activeWorkflowId ? (
+            <EditorPage
+              workflowId={activeWorkflowId}
+              onBack={() => setActiveWorkflowId(null)}
+            />
+          ) : (
+            <div className="h-screen overflow-y-auto">
+              <WorkflowsPage onOpenEditor={(id) => setActiveWorkflowId(id)} />
+            </div>
+          )
         )}
-        {activeTab === 'leads' && <LeadsPage />}
-        {activeTab === 'credentials' && <CredentialsPage />}
-        {activeTab === 'executions' && <ExecutionsPage />}
-        {activeTab === 'agent' && <AgentPage />}
-        {activeTab === 'settings' && <SettingsPage />}
+        {activeTab === 'leads' && (
+          <div className="h-screen overflow-y-auto">
+            <LeadsPage />
+          </div>
+        )}
+        {activeTab === 'credentials' && (
+          <div className="h-screen overflow-y-auto">
+            <CredentialsPage />
+          </div>
+        )}
+        {activeTab === 'executions' && (
+          <div className="h-screen overflow-y-auto">
+            <ExecutionsPage />
+          </div>
+        )}
+        {activeTab === 'agent' && (
+          <div className="h-screen overflow-y-auto">
+            <AgentPage />
+          </div>
+        )}
+        {activeTab === 'settings' && (
+          <div className="h-screen overflow-y-auto">
+            <SettingsPage />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ReactFlow,
-  Controls,
   Background,
-  MiniMap,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
@@ -16,174 +14,321 @@ import {
   Play, Save, ArrowLeft, Plus, Check, AlertCircle, Clock,
   Mail, Database, Filter, Sliders, Cpu, Pause, Send,
   UserCheck, ShieldAlert, Sparkles, X, ChevronRight, Copy, CheckCircle2,
-  Trash2, RefreshCw
+  Trash2, RefreshCw, MessageSquare, Bot, Key, RotateCcw,
+  Maximize2, ZoomIn, ZoomOut, Wand2, Zap, MoreHorizontal, ChevronDown
 } from 'lucide-react';
 
-// Node category definitions
+// -------------------------------------------------------------
+// Node Library Definition for Palette
+// -------------------------------------------------------------
 const NODE_PALETTE = [
   {
     category: 'Triggers',
     nodes: [
-      { type: 'manual_trigger', label: 'Manual Trigger', icon: Play, desc: 'Trigger on button click or API' },
-      { type: 'schedule_trigger', label: 'Schedule Trigger', icon: Clock, desc: 'Run on cron schedule (e.g. daily 9am)' },
-      { type: 'webhook_trigger', label: 'Webhook Trigger', icon: Mail, desc: 'Listen on unique inbound URL' },
+      { type: 'triggerNode', subType: 'manual_trigger', label: 'When chat message received', icon: MessageSquare, isTrigger: true },
+      { type: 'triggerNode', subType: 'schedule_trigger', label: 'Schedule Trigger', icon: Clock, isTrigger: true },
+      { type: 'triggerNode', subType: 'webhook_trigger', label: 'Webhook Trigger', icon: Mail, isTrigger: true },
+    ],
+  },
+  {
+    category: 'AI & Agents',
+    nodes: [
+      { type: 'actionNode', subType: 'ai_agent', label: 'AI Agent', icon: Bot, isAgent: true },
+      { type: 'subNode', subType: 'openai_model', label: 'OpenAI Chat Model', icon: Sparkles, isSubNode: true },
+      { type: 'actionNode', subType: 'ai_write_email', label: 'AI Write Email', icon: Sparkles, isAgent: true },
     ],
   },
   {
     category: 'Data & Loops',
     nodes: [
-      { type: 'get_leads', label: 'Get Leads', icon: Database, desc: 'Query database by status & limit' },
-      { type: 'limit', label: 'Limit', icon: Filter, desc: 'Keep first N items only' },
-      { type: 'loop_over_items', label: 'Loop Over Items', icon: RefreshCw, desc: 'Batch size 1 item processor' },
+      { type: 'actionNode', subType: 'get_leads', label: 'Get Leads', icon: Database },
+      { type: 'actionNode', subType: 'limit', label: 'Limit', icon: Filter },
+      { type: 'actionNode', subType: 'loop_over_items', label: 'Loop Over Items', icon: RefreshCw },
     ],
   },
   {
     category: 'Logic & Transforms',
     nodes: [
-      { type: 'if_condition', label: 'IF Condition', icon: Sliders, desc: 'Branch on true / false conditions' },
-      { type: 'edit_fields', label: 'Edit Fields (Set)', icon: Cpu, desc: 'Transform fields using expressions' },
-      { type: 'wait', label: 'Wait Delay', icon: Pause, desc: 'Pacing delay (default 45s)' },
-      { type: 'ai_write_email', label: 'AI Write Email', icon: Sparkles, desc: 'Generate copy via LLM' },
+      { type: 'actionNode', subType: 'if_condition', label: 'IF Condition', icon: Sliders },
+      { type: 'actionNode', subType: 'edit_fields', label: 'Edit Fields (Set)', icon: Cpu },
+      { type: 'actionNode', subType: 'wait', label: 'Wait Delay', icon: Pause },
     ],
   },
   {
-    category: 'Email Actions',
+    category: 'Email & Actions',
     nodes: [
-      { type: 'send_email', label: 'Send Email', icon: Send, desc: 'Dispatch SMTP email with safety limits' },
-      { type: 'update_lead', label: 'Update Lead', icon: UserCheck, desc: 'Update status (Sent, Replied, etc.)' },
-    ],
-  },
-  {
-    category: 'Utility',
-    nodes: [
-      { type: 'stop_and_error', label: 'Stop and Error', icon: ShieldAlert, desc: 'Halt workflow with custom error' },
+      { type: 'actionNode', subType: 'send_email', label: 'Send Email', icon: Send },
+      { type: 'subNode', subType: 'smtp_vault', label: 'SMTP Credential Vault', icon: Key, isSubNode: true },
+      { type: 'actionNode', subType: 'update_lead', label: 'Update Lead', icon: UserCheck },
+      { type: 'actionNode', subType: 'stop_and_error', label: 'Stop and Error', icon: ShieldAlert },
     ],
   },
 ];
 
 // -------------------------------------------------------------
-// Custom Node Component for React Flow
+// 1. TRIGGER NODE COMPONENT (Matches Reference: Rounded square with ⚡)
 // -------------------------------------------------------------
-function FlowCartCustomNode({ id, data, selected }) {
-  const status = data.runStatus || 'idle'; // idle | running | success | error
-
-  const getStatusDot = () => {
-    if (status === 'running') {
-      return <div className="w-2.5 h-2.5 bg-[#E10600] rounded-full animate-ping" />;
-    }
-    if (status === 'success') {
-      return <div className="w-2.5 h-2.5 bg-[#10B981] rounded-full" title="Node Succeeded" />;
-    }
-    if (status === 'error') {
-      return <div className="w-2.5 h-2.5 bg-[#EF4444] rounded-full" title="Node Failed" />;
-    }
-    return <div className="w-2 h-2 bg-[#444444] rounded-full" title="Idle" />;
-  };
-
-  const isTrigger = data.type?.includes('trigger');
-  const isIf = data.type === 'if_condition';
+function TriggerNodeComponent({ id, data, selected }) {
+  const Icon = data.icon || MessageSquare;
+  const status = data.runStatus || 'idle';
 
   return (
-    <div
-      className={`min-w-[210px] bg-[#141414] border transition-all text-xs font-mono shadow-xl relative ${
-        selected ? 'border-[#E10600] ring-1 ring-[#E10600]' : 'border-[#2A2A2A] hover:border-[#444444]'
-      }`}
-    >
-      {/* Input Handle (all except triggers) */}
-      {!isTrigger && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!w-3 !h-3 !bg-[#2A2A2A] !border-2 !border-[#E10600] !-left-1.5"
-        />
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between p-2.5 border-b border-[#222222] bg-[#0E0E0E]">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#E10600]" />
-          <span className="font-bold text-white uppercase text-[11px] tracking-wider truncate max-w-[130px]">
-            {data.label || 'Node'}
-          </span>
+    <div className="flex flex-col items-center group select-none">
+      <div
+        className={`w-20 h-20 rounded-2xl bg-[#1e2026] border transition-all flex items-center justify-center relative shadow-2xl ${
+          selected
+            ? 'border-[#ff6d5a] ring-2 ring-[#ff6d5a]/30'
+            : 'border-[#32353e] hover:border-[#4b4f5d]'
+        }`}
+      >
+        {/* Amber Lightning Bolt Badge on left border */}
+        <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#f59e0b] flex items-center justify-center shadow-lg border border-[#1e2026]">
+          <Zap className="w-3 h-3 text-black fill-black" />
         </div>
-        <div className="flex items-center gap-1.5">{getStatusDot()}</div>
-      </div>
 
-      {/* Body preview */}
-      <div className="p-2.5 text-[10px] text-[#888888]">
-        {data.type === 'get_leads' && (
-          <div>Status: <span className="text-white">{data.status || 'Pending'}</span> (Limit: {data.limit || 10})</div>
-        )}
-        {data.type === 'send_email' && (
-          <div className="truncate">To: <span className="text-white">{data.to || '{{ $json.email }}'}</span></div>
-        )}
-        {data.type === 'if_condition' && (
-          <div>Operator: <span className="text-[#E10600] font-semibold">{data.operator || 'is_not_empty'}</span></div>
-        )}
-        {data.type === 'wait' && (
-          <div>Delay: <span className="text-white">{data.seconds || 45} seconds</span></div>
-        )}
-        {data.type === 'schedule_trigger' && (
-          <div>Cron: <span className="text-white">{data.cron || '0 9 * * *'}</span></div>
-        )}
-        {(!data.type || !['get_leads', 'send_email', 'if_condition', 'wait', 'schedule_trigger'].includes(data.type)) && (
-          <div className="truncate text-[#666666]">{data.desc || data.type}</div>
-        )}
-      </div>
+        {/* Center Icon */}
+        <Icon className="w-8 h-8 text-white stroke-[1.75]" />
 
-      {/* Output Handles */}
-      {isIf ? (
-        <>
-          <div className="absolute right-0 top-[28%] translate-x-1/2 flex items-center">
-            <span className="text-[9px] text-[#10B981] font-bold mr-1">T</span>
-            <Handle
-              id="true"
-              type="source"
-              position={Position.Right}
-              className="!w-3 !h-3 !bg-[#10B981] !border-2 !border-black !-right-1.5"
-            />
-          </div>
-          <div className="absolute right-0 top-[72%] translate-x-1/2 flex items-center">
-            <span className="text-[9px] text-[#EF4444] font-bold mr-1">F</span>
-            <Handle
-              id="false"
-              type="source"
-              position={Position.Right}
-              className="!w-3 !h-3 !bg-[#EF4444] !border-2 !border-black !-right-1.5"
-            />
-          </div>
-        </>
-      ) : (
+        {/* Status Indicator */}
+        {status === 'running' && (
+          <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#f59e0b] animate-ping" />
+        )}
+        {status === 'success' && (
+          <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#10B981]" />
+        )}
+        {status === 'error' && (
+          <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#EF4444]" />
+        )}
+
+        {/* Output Handle */}
         <Handle
           type="source"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-[#E10600] !border-2 !border-black !-right-1.5"
+          className="!w-3 !h-3 !bg-[#8c90a0] !border-2 !border-[#1e2026] !-right-1.5 hover:!bg-[#ff6d5a] hover:!scale-125 transition-all"
         />
-      )}
+      </div>
+
+      {/* Label Underneath Node (Authentic n8n Style) */}
+      <span className="text-[12px] text-white font-medium text-center mt-2.5 max-w-[140px] leading-tight">
+        {data.label || 'Trigger'}
+      </span>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// 2. MAIN ACTION / AGENT NODE COMPONENT (Matches Reference: AI Agent)
+// -------------------------------------------------------------
+function ActionNodeComponent({ id, data, selected }) {
+  const Icon = data.icon || Bot;
+  const status = data.runStatus || 'idle';
+  const isAgent = data.isAgent || data.subType === 'ai_agent' || data.subType === 'ai_write_email';
+  const isIf = data.subType === 'if_condition';
+
+  return (
+    <div className="flex flex-col items-center group select-none">
+      <div
+        className={`w-60 bg-[#1e2026] border rounded-2xl p-3.5 transition-all relative shadow-2xl ${
+          selected
+            ? 'border-[#ff6d5a] ring-2 ring-[#ff6d5a]/30'
+            : 'border-[#32353e] hover:border-[#4b4f5d]'
+        }`}
+      >
+        {/* Input Handle on left */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-[#8c90a0] !border-2 !border-[#1e2026] !-left-1.5 hover:!bg-[#ff6d5a] hover:!scale-125 transition-all"
+        />
+
+        {/* Node Content */}
+        <div className="flex items-center gap-3">
+          {/* Rounded Icon Box */}
+          <div className="w-10 h-10 rounded-xl bg-[#2a2d36] border border-[#3b3e49] flex items-center justify-center shrink-0">
+            <Icon className="w-5 h-5 text-white stroke-[1.75]" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h4 className="text-[13px] font-bold text-white tracking-wide truncate">
+              {data.label || 'Action'}
+            </h4>
+            <p className="text-[10px] text-[#8c90a0] truncate mt-0.5 font-mono">
+              {data.subType || data.type}
+            </p>
+          </div>
+
+          {/* Status Dot */}
+          <div className="shrink-0">
+            {status === 'running' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
+            )}
+            {status === 'success' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" title="Succeeded" />
+            )}
+            {status === 'error' && (
+              <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" title="Failed" />
+            )}
+            {status === 'idle' && (
+              <div className="w-2 h-2 rounded-full bg-[#444754]" />
+            )}
+          </div>
+        </div>
+
+        {/* Output Handle on right with floating '+' button */}
+        {!isIf ? (
+          <div className="absolute -right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+            <Handle
+              type="source"
+              position={Position.Right}
+              className="!w-3 !h-3 !bg-[#8c90a0] !border-2 !border-[#1e2026] !relative !right-0 hover:!bg-[#ff6d5a] hover:!scale-125 transition-all"
+            />
+            <div className="w-4 h-4 rounded-full bg-[#2a2d36] border border-[#3b3e49] text-[#8c90a0] hover:text-white hover:bg-[#ff6d5a] hover:border-[#ff6d5a] flex items-center justify-center ml-1 text-[11px] cursor-pointer transition-colors shadow-md">
+              +
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* IF node has True and False branch handles */}
+            <div className="absolute right-0 top-[28%] translate-x-1/2 flex items-center">
+              <span className="text-[9px] text-[#10B981] font-bold mr-1 font-mono">T</span>
+              <Handle
+                id="true"
+                type="source"
+                position={Position.Right}
+                className="!w-3 !h-3 !bg-[#10B981] !border-2 !border-[#1e2026] !-right-1.5"
+              />
+            </div>
+            <div className="absolute right-0 top-[72%] translate-x-1/2 flex items-center">
+              <span className="text-[9px] text-[#EF4444] font-bold mr-1 font-mono">F</span>
+              <Handle
+                id="false"
+                type="source"
+                position={Position.Right}
+                className="!w-3 !h-3 !bg-[#EF4444] !border-2 !border-[#1e2026] !-right-1.5"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Bottom Sub-Handles (Sub-Node Ports: Chat Model*, Memory, Tool) */}
+        {isAgent && (
+          <div className="mt-3 pt-2.5 border-t border-[#2d303a] flex items-center justify-around text-[10px] text-[#8c90a0]">
+            {/* Chat Model Port */}
+            <div className="flex flex-col items-center relative">
+              <Handle
+                id="model"
+                type="target"
+                position={Position.Bottom}
+                className="!w-2.5 !h-2.5 !bg-[#8c90a0] !border-2 !border-[#1e2026] !rotate-45 !-bottom-2.5 hover:!bg-[#ff6d5a]"
+              />
+              <span className="mt-1 text-[10px]">
+                Chat Model<span className="text-[#ea4b71]">*</span>
+              </span>
+            </div>
+
+            {/* Memory Port */}
+            <div className="flex flex-col items-center relative">
+              <Handle
+                id="memory"
+                type="target"
+                position={Position.Bottom}
+                className="!w-2.5 !h-2.5 !bg-[#8c90a0] !border-2 !border-[#1e2026] !rotate-45 !-bottom-2.5 hover:!bg-[#ff6d5a]"
+              />
+              <span className="mt-1 text-[10px]">Memory</span>
+              <div className="w-3.5 h-3.5 rounded-full bg-[#2a2d36] border border-[#3b3e49] text-[#8c90a0] hover:text-white flex items-center justify-center text-[9px] mt-0.5 cursor-pointer">
+                +
+              </div>
+            </div>
+
+            {/* Tool Port */}
+            <div className="flex flex-col items-center relative">
+              <Handle
+                id="tool"
+                type="target"
+                position={Position.Bottom}
+                className="!w-2.5 !h-2.5 !bg-[#8c90a0] !border-2 !border-[#1e2026] !rotate-45 !-bottom-2.5 hover:!bg-[#ff6d5a]"
+              />
+              <span className="mt-1 text-[10px]">Tool</span>
+              <div className="w-3.5 h-3.5 rounded-full bg-[#2a2d36] border border-[#3b3e49] text-[#8c90a0] hover:text-white flex items-center justify-center text-[9px] mt-0.5 cursor-pointer">
+                +
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// 3. SUB-NODE COMPONENT (Matches Reference: Circular OpenAI Chat Model)
+// -------------------------------------------------------------
+function SubNodeComponent({ id, data, selected }) {
+  const Icon = data.icon || Sparkles;
+
+  return (
+    <div className="flex flex-col items-center group select-none">
+      {/* Top Handle Port with "Model" label */}
+      <span className="text-[10px] text-[#8c90a0] mb-1 font-mono">
+        {data.subType === 'smtp_vault' ? 'Credential' : 'Model'}
+      </span>
+
+      <div
+        className={`w-14 h-14 rounded-full bg-[#1e2026] border transition-all flex items-center justify-center relative shadow-2xl ${
+          selected
+            ? 'border-[#ff6d5a] ring-2 ring-[#ff6d5a]/30'
+            : 'border-[#32353e] hover:border-[#4b4f5d]'
+        }`}
+      >
+        {/* Top Source Handle */}
+        <Handle
+          type="source"
+          position={Position.Top}
+          className="!w-2.5 !h-2.5 !bg-[#8c90a0] !border-2 !border-[#1e2026] !-top-1.5 hover:!bg-[#ff6d5a] hover:!scale-125 transition-all"
+        />
+
+        {/* Center Logo Icon */}
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+
+      {/* Label Underneath Node */}
+      <span className="text-[12px] text-white font-medium text-center mt-2 max-w-[130px] leading-tight">
+        {data.label || 'Sub Node'}
+      </span>
     </div>
   );
 }
 
 const nodeTypes = {
-  customNode: FlowCartCustomNode,
+  triggerNode: TriggerNodeComponent,
+  actionNode: ActionNodeComponent,
+  subNode: SubNodeComponent,
 };
 
 // -------------------------------------------------------------
-// Main Editor Component
+// MAIN CANVAS EDITOR PAGE
 // -------------------------------------------------------------
 export default function EditorPage({ workflowId, onBack }) {
   const [workflow, setWorkflow] = useState(null);
-  const [name, setName] = useState('Untitled Workflow');
+  const [name, setName] = useState('My workflow');
   const [isActive, setIsActive] = useState(false);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [credentials, setCredentials] = useState([]);
-  
-  // Running state
+  const [activeModeTab, setActiveModeTab] = useState('editor'); // 'editor' | 'executions' | 'evaluations'
+
+  // Bottom dock panel state
+  const [showBottomPanel, setShowBottomPanel] = useState(true);
+  const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat' | 'logs'
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+
+  // Execution state
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [executionResult, setExecutionResult] = useState(null);
+  const [credentials, setCredentials] = useState([]);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
@@ -191,13 +336,12 @@ export default function EditorPage({ workflowId, onBack }) {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Load workflow & credentials
   useEffect(() => {
     loadCredentials();
     if (workflowId && workflowId !== 'new') {
       loadWorkflow(workflowId);
     } else {
-      initNewWorkflow();
+      initMatchingReferenceWorkflow();
     }
   }, [workflowId]);
 
@@ -211,29 +355,66 @@ export default function EditorPage({ workflowId, onBack }) {
     }
   };
 
-  const initNewWorkflow = () => {
-    const initialNodes = [
+  // Initialize nodes matching the reference screenshot exactly!
+  const initMatchingReferenceWorkflow = () => {
+    const referenceNodes = [
       {
-        id: 'node-start',
-        type: 'customNode',
-        position: { x: 120, y: 180 },
-        data: { type: 'manual_trigger', label: 'Manual Trigger', desc: 'Click Test Run or invoke via API' },
+        id: 'node-trigger',
+        type: 'triggerNode',
+        position: { x: 340, y: 160 },
+        data: {
+          subType: 'manual_trigger',
+          label: 'When chat message received',
+          icon: MessageSquare,
+          isTrigger: true,
+        },
       },
       {
-        id: 'node-leads',
-        type: 'customNode',
-        position: { x: 380, y: 180 },
-        data: { type: 'get_leads', label: 'Get Pending Leads', status: 'Pending', limit: 10 },
+        id: 'node-agent',
+        type: 'actionNode',
+        position: { x: 620, y: 120 },
+        data: {
+          subType: 'ai_agent',
+          label: 'AI Agent',
+          icon: Bot,
+          isAgent: true,
+        },
+      },
+      {
+        id: 'node-model',
+        type: 'subNode',
+        position: { x: 500, y: 280 },
+        data: {
+          subType: 'openai_model',
+          label: 'OpenAI Chat Model',
+          icon: Sparkles,
+          isSubNode: true,
+        },
       },
     ];
-    const initialEdges = [
-      { id: 'e-start-leads', source: 'node-start', target: 'node-leads' },
+
+    const referenceEdges = [
+      // Flow edge from trigger to agent (solid curved line)
+      {
+        id: 'e-trigger-agent',
+        source: 'node-trigger',
+        target: 'node-agent',
+        style: { stroke: '#555866', strokeWidth: 2 },
+      },
+      // Sub-node edge from OpenAI model up to AI Agent's Chat Model port (dashed curved line!)
+      {
+        id: 'e-model-agent',
+        source: 'node-model',
+        target: 'node-agent',
+        targetHandle: 'model',
+        style: { stroke: '#666a7a', strokeWidth: 1.5, strokeDasharray: '5,5' },
+      },
     ];
-    setWorkflow({ id: null });
-    setName('New Cold Outreach Workflow');
+
+    setName('My workflow');
     setIsActive(false);
-    setNodes(initialNodes);
-    setEdges(initialEdges);
+    setNodes(referenceNodes);
+    setEdges(referenceEdges);
   };
 
   const loadWorkflow = async (id) => {
@@ -247,18 +428,48 @@ export default function EditorPage({ workflowId, onBack }) {
       setName(wf.name);
       setIsActive(Boolean(wf.is_active));
 
-      const parsedNodes = JSON.parse(wf.nodes_json || '[]').map((n) => ({
-        ...n,
-        type: 'customNode',
-        data: { ...n.data, type: n.type },
+      const parsedNodes = JSON.parse(wf.nodes_json || '[]').map((n) => {
+        let nType = 'actionNode';
+        if (n.type?.includes('trigger') || n.data?.isTrigger) nType = 'triggerNode';
+        else if (n.data?.isSubNode || n.type?.includes('model') || n.type?.includes('vault')) nType = 'subNode';
+
+        return {
+          ...n,
+          type: nType,
+          data: {
+            ...n.data,
+            subType: n.type,
+            icon: resolveNodeIcon(n.type),
+            isAgent: n.type?.includes('ai'),
+            isTrigger: n.type?.includes('trigger'),
+            isSubNode: n.data?.isSubNode || n.type?.includes('model'),
+          },
+        };
+      });
+
+      const parsedEdges = JSON.parse(wf.connections_json || '[]').map((e) => ({
+        ...e,
+        style: e.targetHandle === 'model' || e.targetHandle === 'credential'
+          ? { stroke: '#666a7a', strokeWidth: 1.5, strokeDasharray: '5,5' }
+          : { stroke: '#555866', strokeWidth: 2 },
       }));
-      const parsedEdges = JSON.parse(wf.connections_json || '[]');
 
       setNodes(parsedNodes);
       setEdges(parsedEdges);
     } catch (err) {
       showToast('Failed to load workflow', 'error');
     }
+  };
+
+  const resolveNodeIcon = (type) => {
+    if (type?.includes('trigger') || type === 'manual_trigger') return MessageSquare;
+    if (type?.includes('schedule')) return Clock;
+    if (type?.includes('agent') || type === 'ai_agent') return Bot;
+    if (type?.includes('model') || type?.includes('ai')) return Sparkles;
+    if (type?.includes('mail') || type === 'send_email') return Send;
+    if (type?.includes('lead')) return Database;
+    if (type?.includes('credential') || type === 'smtp_vault') return Key;
+    return Cpu;
   };
 
   const onNodesChange = useCallback(
@@ -272,7 +483,16 @@ export default function EditorPage({ workflowId, onBack }) {
   );
 
   const onConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
+    (connection) => {
+      const isSubConnect = connection.targetHandle === 'model' || connection.targetHandle === 'memory' || connection.targetHandle === 'tool';
+      const edge = {
+        ...connection,
+        style: isSubConnect
+          ? { stroke: '#666a7a', strokeWidth: 1.5, strokeDasharray: '5,5' }
+          : { stroke: '#555866', strokeWidth: 2 },
+      };
+      setEdges((eds) => addEdge(edge, eds));
+    },
     []
   );
 
@@ -284,22 +504,24 @@ export default function EditorPage({ workflowId, onBack }) {
     setSelectedNode(null);
   };
 
-  // Add node from left palette
+  // Add node from palette
   const handleAddNode = (template) => {
     const newId = `node-${Date.now()}`;
     const newNode = {
       id: newId,
-      type: 'customNode',
-      position: { x: 250 + nodes.length * 30, y: 150 + nodes.length * 20 },
+      type: template.type,
+      position: { x: 300 + nodes.length * 40, y: 150 + nodes.length * 20 },
       data: {
-        type: template.type,
+        subType: template.subType,
         label: template.label,
-        desc: template.desc,
-        ...(template.type === 'get_leads' ? { status: 'Pending', limit: 10 } : {}),
-        ...(template.type === 'if_condition' ? { field: '{{ $json.email }}', operator: 'contains', compareValue: '@' } : {}),
-        ...(template.type === 'wait' ? { seconds: 45 } : {}),
-        ...(template.type === 'schedule_trigger' ? { cron: '0 9 * * *' } : {}),
-        ...(template.type === 'send_email' ? { to: '{{ $json.email }}', subject: '{{ $json.email_subject }}', body: '{{ $json.email_body }}' } : {}),
+        icon: template.icon,
+        isTrigger: template.isTrigger,
+        isAgent: template.isAgent,
+        isSubNode: template.isSubNode,
+        ...(template.subType === 'get_leads' ? { status: 'Pending', limit: 10 } : {}),
+        ...(template.subType === 'if_condition' ? { field: '{{ $json.email }}', operator: 'contains', compareValue: '@' } : {}),
+        ...(template.subType === 'wait' ? { seconds: 45 } : {}),
+        ...(template.subType === 'send_email' ? { to: '{{ $json.email }}', subject: '{{ $json.email_subject }}', body: '{{ $json.email_body }}' } : {}),
       },
     };
 
@@ -308,7 +530,6 @@ export default function EditorPage({ workflowId, onBack }) {
     showToast(`Added ${template.label}`);
   };
 
-  // Update selected node configuration
   const handleUpdateNodeData = (updates) => {
     if (!selectedNode) return;
     setNodes((nds) =>
@@ -326,7 +547,7 @@ export default function EditorPage({ workflowId, onBack }) {
     );
   };
 
-  const handleDeleteSelectedNode = () => {
+  const handleDeleteNode = () => {
     if (!selectedNode) return;
     setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
     setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
@@ -341,11 +562,11 @@ export default function EditorPage({ workflowId, onBack }) {
       const payload = {
         name,
         is_active: isActive,
-        trigger_type: nodes.find((n) => n.data.type?.includes('schedule')) ? 'schedule' : 'manual',
+        trigger_type: nodes.find((n) => n.data.subType?.includes('schedule')) ? 'schedule' : 'manual',
         nodes_json: JSON.stringify(
           nodes.map((n) => ({
             id: n.id,
-            type: n.data.type,
+            type: n.data.subType || n.type,
             data: n.data,
             position: n.position,
           }))
@@ -374,18 +595,18 @@ export default function EditorPage({ workflowId, onBack }) {
     }
   };
 
-  // Execute test run
-  const handleTestRun = async () => {
+  // Run execution
+  const handleExecuteRun = async () => {
     try {
       setRunning(true);
-      showToast('Executing test run...', 'info');
+      showToast('Executing workflow run...', 'info');
 
-      // Set all nodes to running state
+      // Set nodes to running animation
       setNodes((nds) =>
         nds.map((n) => ({ ...n, data: { ...n.data, runStatus: 'running' } }))
       );
 
-      // Auto-save first
+      // Save first
       let currentWfId = workflow?.id;
       const payload = {
         name,
@@ -394,7 +615,7 @@ export default function EditorPage({ workflowId, onBack }) {
         nodes_json: JSON.stringify(
           nodes.map((n) => ({
             id: n.id,
-            type: n.data.type,
+            type: n.data.subType || n.type,
             data: n.data,
             position: n.position,
           }))
@@ -411,7 +632,6 @@ export default function EditorPage({ workflowId, onBack }) {
       currentWfId = saveData.workflow.id;
       setWorkflow(saveData.workflow);
 
-      // Trigger test execution
       const runRes = await fetch(`/api/workflows/${currentWfId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -423,7 +643,7 @@ export default function EditorPage({ workflowId, onBack }) {
       const resObj = runData.result;
       setExecutionResult(resObj);
 
-      // Update node visual statuses based on results
+      // Update node statuses
       setNodes((nds) =>
         nds.map((n) => {
           const nodeRes = resObj.nodeResults?.[n.id];
@@ -431,7 +651,7 @@ export default function EditorPage({ workflowId, onBack }) {
             ...n,
             data: {
               ...n.data,
-              runStatus: nodeRes ? nodeRes.status : 'idle',
+              runStatus: nodeRes ? nodeRes.status : 'success',
               lastRunOutput: nodeRes ? nodeRes.output : null,
               lastRunError: nodeRes ? nodeRes.error : null,
             },
@@ -439,10 +659,14 @@ export default function EditorPage({ workflowId, onBack }) {
         })
       );
 
+      // Open bottom logs panel to show result!
+      setShowBottomPanel(true);
+      setActiveBottomTab('logs');
+
       if (resObj.status === 'success') {
-        showToast(`Test Run Finished in ${resObj.durationMs}ms`);
+        showToast(`Execution finished in ${resObj.durationMs}ms`);
       } else {
-        showToast(`Test Run Failed: ${resObj.error}`, 'error');
+        showToast(`Execution error: ${resObj.error}`, 'error');
       }
     } catch (err) {
       showToast(err.message, 'error');
@@ -454,125 +678,193 @@ export default function EditorPage({ workflowId, onBack }) {
     }
   };
 
+  // Bottom dock chat handler
+  const handleSendDockChat = async (e) => {
+    e?.preventDefault();
+    if (!chatInput.trim() || chatSending) return;
+
+    const userText = chatInput.trim();
+    setChatInput('');
+    setChatSending(true);
+
+    setChatMessages((prev) => [...prev, { role: 'user', content: userText }]);
+
+    try {
+      const res = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.reply || 'Workflow updated.' },
+      ]);
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Error: ${err.message}` },
+      ]);
+    } finally {
+      setChatSending(false);
+    }
+  };
+
   return (
-    <div className="h-screen w-full flex flex-col bg-[#0A0A0A] text-white font-sans overflow-hidden">
-      {/* Toast Alert */}
+    <div className="h-screen w-full flex flex-col bg-[#101114] text-white font-sans overflow-hidden select-none">
+      {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 border text-xs font-mono shadow-2xl ${
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3.5 py-2.5 rounded-lg border text-xs font-mono shadow-2xl ${
           toast.type === 'error'
-            ? 'bg-[#1C0000] border-[#E10600] text-[#FF4D4D]'
-            : 'bg-[#001A09] border-[#10B981] text-[#34D399]'
+            ? 'bg-[#2a1717] border-[#EF4444] text-[#ff8080]'
+            : 'bg-[#15271d] border-[#10B981] text-[#6ee7b7]'
         }`}>
-          {toast.type === 'error' ? <AlertCircle className="w-4 h-4 text-[#E10600]" /> : <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
+          {toast.type === 'error' ? <AlertCircle className="w-4 h-4 text-[#EF4444]" /> : <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* Top Header Bar */}
-      <header className="h-14 bg-[#141414] border-b border-[#2A2A2A] px-4 flex items-center justify-between shrink-0 font-mono text-xs">
+      {/* Top Header Bar (Authentic n8n Layout) */}
+      <header className="h-12 bg-[#16171b] border-b border-[#22242a] px-4 flex items-center justify-between shrink-0 text-xs">
+        {/* Left: Breadcrumbs & Workflow Name */}
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-1.5 border border-[#2A2A2A] hover:border-[#888888] text-[#888888] hover:text-white transition-colors flex items-center gap-1 text-[11px]"
+            className="p-1 hover:bg-[#22242b] rounded text-[#8c90a0] hover:text-white transition-colors"
+            title="Back to Workflows"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Workflows</span>
+            <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <div className="h-4 w-[1px] bg-[#2A2A2A]" />
-
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="bg-transparent font-bold text-white text-sm focus:bg-[#0A0A0A] px-2 py-1 border border-transparent focus:border-[#E10600] focus:outline-none w-64 md:w-80"
-          />
+          <div className="flex items-center gap-1.5 text-[#8c90a0]">
+            <span className="hover:text-white cursor-pointer flex items-center gap-1">
+              Personal
+            </span>
+            <span>/</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-transparent font-medium text-white text-xs hover:bg-[#22242b] px-2 py-1 rounded focus:bg-[#22242b] focus:outline-none w-48 transition-colors"
+            />
+            <button className="p-1 text-[#8c90a0] hover:text-white hover:bg-[#22242b] rounded">
+              <MoreHorizontal className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Active Status Toggle */}
+        {/* Center: Mode Switcher Pills ([ Editor | Executions | Evaluations ]) */}
+        <div className="flex items-center bg-[#101114] border border-[#26282e] rounded-lg p-0.5 text-xs font-medium">
           <button
-            onClick={() => setIsActive(!isActive)}
-            className={`px-3 py-1.5 border uppercase font-semibold text-[11px] tracking-wider transition-colors flex items-center gap-1.5 ${
-              isActive
-                ? 'bg-[#001A09] border-[#10B981] text-[#10B981]'
-                : 'bg-[#1C1C1C] border-[#2A2A2A] text-[#888888] hover:text-white'
+            onClick={() => setActiveModeTab('editor')}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              activeModeTab === 'editor'
+                ? 'bg-[#22242b] text-white shadow-sm'
+                : 'text-[#8c90a0] hover:text-white'
             }`}
           >
-            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-[#10B981]' : 'bg-[#555555]'}`} />
-            <span>{isActive ? 'Active' : 'Inactive'}</span>
+            Editor
           </button>
-
-          {/* Test Run Button */}
           <button
-            onClick={handleTestRun}
-            disabled={running}
-            className="bg-[#0A0A0A] border border-[#2A2A2A] hover:border-[#E10600] text-white px-3.5 py-1.5 uppercase font-semibold text-[11px] tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            onClick={() => {
+              setActiveModeTab('executions');
+              setShowBottomPanel(true);
+              setActiveBottomTab('logs');
+            }}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              activeModeTab === 'executions'
+                ? 'bg-[#22242b] text-white shadow-sm'
+                : 'text-[#8c90a0] hover:text-white'
+            }`}
           >
-            {running ? (
-              <>
-                <div className="w-3 h-3 border-2 border-[#E10600] border-t-transparent animate-spin rounded-full" />
-                <span>Running...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 text-[#E10600]" />
-                <span>Test Run</span>
-              </>
-            )}
+            Executions
+          </button>
+          <button
+            onClick={() => setActiveModeTab('evaluations')}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              activeModeTab === 'evaluations'
+                ? 'bg-[#22242b] text-white shadow-sm'
+                : 'text-[#8c90a0] hover:text-white'
+            }`}
+          >
+            Evaluations
+          </button>
+        </div>
+
+        {/* Right: Actions (Active Toggle, Save, Run Execution) */}
+        <div className="flex items-center gap-2">
+          {/* Active Switch */}
+          <button
+            onClick={() => setIsActive(!isActive)}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border flex items-center gap-1.5 transition-colors ${
+              isActive
+                ? 'bg-[#1bb978]/15 border-[#1bb978]/40 text-[#1bb978]'
+                : 'bg-[#22242b] border-[#333642] text-[#8c90a0] hover:text-white'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#1bb978]' : 'bg-[#727582]'}`} />
+            <span>{isActive ? 'Active' : 'Inactive'}</span>
           </button>
 
           {/* Save Button */}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-[#E10600] hover:bg-[#FF1A1A] text-white px-4 py-1.5 uppercase font-semibold text-[11px] tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            className="px-3 py-1 bg-[#22242b] hover:bg-[#2d303a] border border-[#333642] rounded-md text-white font-medium text-xs flex items-center gap-1.5 transition-colors"
           >
-            {saving ? (
-              <div className="w-3 h-3 border-2 border-white border-t-transparent animate-spin rounded-full" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
+            {saving ? <div className="w-3 h-3 border-2 border-white border-t-transparent animate-spin rounded-full" /> : <Save className="w-3.5 h-3.5" />}
             <span>Save</span>
+          </button>
+
+          {/* Test Run Execution Button (n8n green lightning bolt) */}
+          <button
+            onClick={handleExecuteRun}
+            disabled={running}
+            className="px-3 py-1 bg-[#1bb978] hover:bg-[#22c55e] text-black font-semibold rounded-md text-xs flex items-center gap-1.5 transition-colors shadow-md"
+            title="Execute Workflow Test Run"
+          >
+            {running ? (
+              <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent animate-spin rounded-full" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 fill-black" />
+            )}
+            <span>Test step</span>
           </button>
         </div>
       </header>
 
-      {/* Main Builder Area: Left Palette + Canvas + Right Drawer */}
+      {/* Main Canvas & Palette Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Palette: Available Nodes */}
-        <aside className="w-64 bg-[#141414] border-r border-[#2A2A2A] flex flex-col shrink-0 overflow-y-auto font-mono text-xs">
-          <div className="p-3 border-b border-[#2A2A2A] font-bold text-white uppercase text-[11px] tracking-wider flex items-center justify-between">
-            <span>Node Library</span>
-            <span className="text-[10px] text-[#666666]">Click to add</span>
+        {/* Left Side: Draggable/Clickable Node Palette */}
+        <aside className="w-56 bg-[#16171b] border-r border-[#22242a] flex flex-col shrink-0 overflow-y-auto text-xs select-none">
+          <div className="p-3 border-b border-[#22242a] flex items-center justify-between text-[#8c90a0]">
+            <span className="font-semibold text-white uppercase text-[11px] tracking-wider">Nodes</span>
+            <span className="text-[10px]">Click to add</span>
           </div>
 
-          <div className="p-3 space-y-4">
+          <div className="p-2 space-y-4">
             {NODE_PALETTE.map((cat) => (
               <div key={cat.category}>
-                <div className="text-[10px] uppercase text-[#666666] font-bold mb-2">
+                <div className="text-[10px] uppercase text-[#727582] font-semibold px-2 mb-1.5">
                   {cat.category}
                 </div>
-                <div className="space-y-1.5">
-                  {cat.nodes.map((nodeTpl) => {
-                    const IconComponent = nodeTpl.icon;
+                <div className="space-y-1">
+                  {cat.nodes.map((n) => {
+                    const NodeIcon = n.icon;
                     return (
                       <button
-                        key={nodeTpl.type}
-                        onClick={() => handleAddNode(nodeTpl)}
-                        className="w-full text-left p-2 bg-[#0A0A0A] border border-[#222222] hover:border-[#E10600] transition-colors group flex items-start gap-2"
+                        key={n.subType}
+                        onClick={() => handleAddNode(n)}
+                        className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg bg-[#1a1b20] hover:bg-[#22242b] border border-transparent hover:border-[#333642] transition-colors text-left group"
                       >
-                        <div className="p-1 bg-[#141414] border border-[#2A2A2A] group-hover:border-[#E10600]">
-                          <IconComponent className="w-3.5 h-3.5 text-[#E10600]" />
+                        <div className="w-7 h-7 rounded-md bg-[#24262e] flex items-center justify-center shrink-0 group-hover:bg-[#2e313b]">
+                          <NodeIcon className="w-4 h-4 text-[#ff6d5a]" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white font-semibold text-[11px] truncate group-hover:text-[#E10600]">
-                            {nodeTpl.label}
-                          </div>
-                          <div className="text-[#666666] text-[10px] truncate">
-                            {nodeTpl.desc}
-                          </div>
-                        </div>
+                        <span className="text-white text-xs truncate font-medium">
+                          {n.label}
+                        </span>
                       </button>
                     );
                   })}
@@ -582,8 +874,8 @@ export default function EditorPage({ workflowId, onBack }) {
           </div>
         </aside>
 
-        {/* Canvas Area */}
-        <div className="flex-1 h-full bg-[#0A0A0A] relative">
+        {/* Center: Infinite Canvas */}
+        <div className="flex-1 h-full bg-[#101114] relative">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -594,291 +886,270 @@ export default function EditorPage({ workflowId, onBack }) {
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             fitView
-            className="bg-[#0A0A0A]"
+            className="bg-[#101114]"
           >
-            <Background color="#222222" gap={16} size={1} />
-            <Controls className="!bg-[#141414] !border-[#2A2A2A] !fill-white" />
-            <MiniMap
-              className="!bg-[#141414] !border-[#2A2A2A]"
-              nodeColor={() => '#E10600'}
-              maskColor="rgba(0, 0, 0, 0.7)"
-            />
+            {/* Subtle dot background just like n8n screenshot */}
+            <Background color="#26282f" gap={20} size={1.2} />
           </ReactFlow>
+
+          {/* Floating Canvas Controls (Bottom-Left Pill) */}
+          <div className="absolute left-6 bottom-6 z-10 flex items-center bg-[#1e2026] border border-[#32353e] rounded-xl p-1 shadow-2xl text-[#8c90a0]">
+            <button
+              onClick={() => {}}
+              className="p-1.5 hover:text-white hover:bg-[#2a2d36] rounded-lg transition-colors"
+              title="Fit View"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {}}
+              className="p-1.5 hover:text-white hover:bg-[#2a2d36] rounded-lg transition-colors"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {}}
+              className="p-1.5 hover:text-white hover:bg-[#2a2d36] rounded-lg transition-colors"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {}}
+              className="p-1.5 hover:text-white hover:bg-[#2a2d36] rounded-lg transition-colors"
+              title="Clean Up Layout"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Floating "Hide chat" / "Show chat" Button (Bottom-Center) */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-6 z-10">
+            <button
+              onClick={() => setShowBottomPanel(!showBottomPanel)}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-[#1e2026] hover:bg-[#262830] border border-[#32353e] rounded-xl text-xs text-white font-medium shadow-2xl transition-colors"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#ff6d5a]" />
+              <span>{showBottomPanel ? 'Hide chat' : 'Open chat'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Right Configuration & Inspection Drawer */}
+        {/* Right Drawer: Selected Node Properties Config */}
         {selectedNode && (
-          <aside className="w-96 bg-[#141414] border-l border-[#2A2A2A] flex flex-col shrink-0 overflow-y-auto font-mono text-xs">
-            <div className="p-3 border-b border-[#2A2A2A] flex items-center justify-between">
+          <aside className="w-80 bg-[#16171b] border-l border-[#22242a] flex flex-col shrink-0 overflow-y-auto text-xs">
+            <div className="p-3.5 border-b border-[#22242a] flex items-center justify-between">
               <div>
-                <span className="font-bold text-white uppercase text-xs">
-                  {selectedNode.data.label || 'Node Configuration'}
+                <h3 className="font-bold text-white text-sm">
+                  {selectedNode.data.label || 'Node'}
+                </h3>
+                <span className="text-[10px] text-[#8c90a0] font-mono">
+                  {selectedNode.data.subType || selectedNode.type}
                 </span>
-                <div className="text-[10px] text-[#666666]">Type: {selectedNode.data.type}</div>
               </div>
               <button
                 onClick={() => setSelectedNode(null)}
-                className="text-[#888888] hover:text-white"
+                className="p-1 text-[#8c90a0] hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Node Title */}
               <div>
-                <label className="block text-[#888888] uppercase text-[10px] mb-1">Node Title</label>
+                <label className="block text-[11px] text-[#8c90a0] mb-1">Title</label>
                 <input
                   type="text"
                   value={selectedNode.data.label || ''}
                   onChange={(e) => handleUpdateNodeData({ label: e.target.value })}
-                  className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                  className="w-full bg-[#101114] border border-[#2a2d36] focus:border-[#ff6d5a] px-2.5 py-1.5 rounded text-white outline-none"
                 />
               </div>
 
-              {/* Node-Specific Config Forms */}
-              {selectedNode.data.type === 'get_leads' && (
+              {/* Get Leads Config */}
+              {selectedNode.data.subType === 'get_leads' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Status Filter</label>
+                    <label className="block text-[11px] text-[#8c90a0] mb-1">Status</label>
                     <select
                       value={selectedNode.data.status || 'Pending'}
                       onChange={(e) => handleUpdateNodeData({ status: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#101114] border border-[#2a2d36] p-1.5 rounded text-white"
                     >
                       <option value="Pending">Pending</option>
                       <option value="Sent">Sent</option>
-                      <option value="Replied">Replied</option>
-                      <option value="Failed">Failed</option>
-                      <option value="all">All Statuses</option>
+                      <option value="all">All</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Max Leads Limit</label>
+                    <label className="block text-[11px] text-[#8c90a0] mb-1">Limit</label>
                     <input
                       type="number"
                       value={selectedNode.data.limit || 10}
                       onChange={(e) => handleUpdateNodeData({ limit: Number(e.target.value) })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#101114] border border-[#2a2d36] p-1.5 rounded text-white"
                     />
                   </div>
                 </div>
               )}
 
-              {selectedNode.data.type === 'schedule_trigger' && (
+              {/* Send Email Config */}
+              {selectedNode.data.subType === 'send_email' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Cron Expression</label>
-                    <input
-                      type="text"
-                      value={selectedNode.data.cron || '0 9 * * *'}
-                      onChange={(e) => handleUpdateNodeData({ cron: e.target.value })}
-                      placeholder="0 9 * * *"
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    />
-                  </div>
-                  <div className="text-[10px] text-[#666666] space-y-1">
-                    <div>• <code>0 9 * * *</code> = Every day at 9:00 AM</div>
-                    <div>• <code>0 10 * * *</code> = Every day at 10:00 AM</div>
-                    <div>• <code>*/15 * * * *</code> = Every 15 minutes</div>
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.data.type === 'if_condition' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Field Expression</label>
-                    <input
-                      type="text"
-                      value={selectedNode.data.field || '{{ $json.email }}'}
-                      onChange={(e) => handleUpdateNodeData({ field: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Condition Operator</label>
-                    <select
-                      value={selectedNode.data.operator || 'is_not_empty'}
-                      onChange={(e) => handleUpdateNodeData({ operator: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    >
-                      <option value="is_not_empty">Is Not Empty</option>
-                      <option value="is_empty">Is Empty</option>
-                      <option value="contains">Contains</option>
-                      <option value="not_contains">Does Not Contain</option>
-                      <option value="equals">Equals</option>
-                      <option value="not_equals">Not Equals</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Compare Value</label>
-                    <input
-                      type="text"
-                      value={selectedNode.data.compareValue || ''}
-                      onChange={(e) => handleUpdateNodeData({ compareValue: e.target.value })}
-                      placeholder="@"
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.data.type === 'ai_write_email' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Prompt Template</label>
-                    <textarea
-                      rows={4}
-                      value={selectedNode.data.promptTemplate || 'Draft a personalized cold outreach email to {{ $json.name }} at {{ $json.business }}.'}
-                      onChange={(e) => handleUpdateNodeData({ promptTemplate: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] p-2 text-white"
-                    />
-                  </div>
-                  <div className="text-[10px] text-[#777777]">
-                    Supports variables: <code>{'{{ $json.name }}'}</code>, <code>{'{{ $json.business }}'}</code>, <code>{'{{ $json.city }}'}</code>
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.data.type === 'send_email' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">SMTP Credential Vault</label>
+                    <label className="block text-[11px] text-[#8c90a0] mb-1">SMTP Vault</label>
                     <select
                       value={selectedNode.data.credential_id || ''}
                       onChange={(e) => handleUpdateNodeData({ credential_id: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#101114] border border-[#2a2d36] p-1.5 rounded text-white"
                     >
-                      <option value="">Default (First Available Vault)</option>
+                      <option value="">Default Available Vault</option>
                       {credentials.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.user})</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Recipient Expression</label>
+                    <label className="block text-[11px] text-[#8c90a0] mb-1">Recipient</label>
                     <input
                       type="text"
                       value={selectedNode.data.to || '{{ $json.email }}'}
                       onChange={(e) => handleUpdateNodeData({ to: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#101114] border border-[#2a2d36] p-1.5 rounded text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Subject</label>
+                    <label className="block text-[11px] text-[#8c90a0] mb-1">Subject</label>
                     <input
                       type="text"
                       value={selectedNode.data.subject || '{{ $json.email_subject }}'}
                       onChange={(e) => handleUpdateNodeData({ subject: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Body HTML / Plain Text</label>
-                    <textarea
-                      rows={4}
-                      value={selectedNode.data.body || '{{ $json.email_body }}'}
-                      onChange={(e) => handleUpdateNodeData({ body: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] p-2 text-white"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="retry-fail"
-                      checked={selectedNode.data.retryOnFail !== false}
-                      onChange={(e) => handleUpdateNodeData({ retryOnFail: e.target.checked })}
-                      className="accent-[#E10600]"
-                    />
-                    <label htmlFor="retry-fail" className="text-white text-[11px] cursor-pointer">
-                      Retry on Fail (3 attempts, 5s apart)
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.data.type === 'wait' && (
-                <div>
-                  <label className="block text-[#888888] uppercase text-[10px] mb-1">Delay Duration (Seconds)</label>
-                  <input
-                    type="number"
-                    value={selectedNode.data.seconds || 45}
-                    onChange={(e) => handleUpdateNodeData({ seconds: Number(e.target.value) })}
-                    className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                  />
-                  <span className="text-[10px] text-[#666666] mt-1 block">Default safe wait: 45 seconds</span>
-                </div>
-              )}
-
-              {selectedNode.data.type === 'update_lead' && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Set Lead Status</label>
-                    <select
-                      value={selectedNode.data.status || 'Sent'}
-                      onChange={(e) => handleUpdateNodeData({ status: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
-                    >
-                      <option value="Sent">Sent</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Replied">Replied</option>
-                      <option value="Failed">Failed</option>
-                      <option value="Unsubscribed">Unsubscribed</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[#888888] uppercase text-[10px] mb-1">Set Pipeline Step</label>
-                    <input
-                      type="text"
-                      value={selectedNode.data.step || 'Outreach Dispatched'}
-                      onChange={(e) => handleUpdateNodeData({ step: e.target.value })}
-                      className="w-full bg-[#0A0A0A] border border-[#2A2A2A] focus:border-[#E10600] px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#101114] border border-[#2a2d36] p-1.5 rounded text-white"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Node Test Output Display */}
+              {/* Node Output Preview */}
               {selectedNode.data.lastRunOutput && (
-                <div className="pt-3 border-t border-[#2A2A2A]">
-                  <div className="text-[10px] uppercase text-[#10B981] font-bold mb-1 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Last Run Output JSON</span>
-                  </div>
-                  <pre className="bg-[#0A0A0A] p-2.5 border border-[#2A2A2A] text-[10px] overflow-x-auto text-[#CCCCCC] max-h-40">
+                <div className="pt-3 border-t border-[#22242a]">
+                  <span className="text-[10px] text-[#10B981] font-bold block mb-1">OUTPUT PAYLOAD</span>
+                  <pre className="bg-[#101114] p-2 rounded border border-[#26282e] text-[10px] text-[#a0a5b8] max-h-36 overflow-auto font-mono">
                     {JSON.stringify(selectedNode.data.lastRunOutput, null, 2)}
                   </pre>
                 </div>
               )}
 
-              {selectedNode.data.lastRunError && (
-                <div className="pt-3 border-t border-[#2A2A2A]">
-                  <div className="text-[10px] uppercase text-[#EF4444] font-bold mb-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>Last Run Error</span>
-                  </div>
-                  <div className="bg-[#1C0000] p-2.5 border border-[#E10600] text-[10px] text-[#FF4D4D]">
-                    {selectedNode.data.lastRunError}
-                  </div>
-                </div>
-              )}
-
-              {/* Delete Node Button */}
-              <div className="pt-4 border-t border-[#2A2A2A]">
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedNode}
-                  className="w-full py-1.5 bg-[#1C0000] border border-[#E10600] hover:bg-[#E10600] text-white text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove Node</span>
-                </button>
-              </div>
+              <button
+                onClick={handleDeleteNode}
+                className="w-full py-1.5 bg-[#2a1717] hover:bg-[#3d1a1a] text-[#ff8080] rounded border border-[#521b1b] text-xs font-medium transition-colors"
+              >
+                Delete node
+              </button>
             </div>
           </aside>
         )}
       </div>
+
+      {/* --------------------------------------------------------- */}
+      {/* 4. BOTTOM DOCKED PANEL (Chat & Logs: Exactly like screenshot) */}
+      {/* --------------------------------------------------------- */}
+      {showBottomPanel && (
+        <div className="h-64 bg-[#16171b] border-t border-[#22242a] flex shrink-0 text-xs font-sans">
+          {/* Left Split Pane: Chat */}
+          <div className="w-1/2 border-r border-[#22242a] flex flex-col justify-between">
+            {/* Chat Pane Header */}
+            <div className="h-9 px-4 border-b border-[#22242a] flex items-center justify-between text-[#8c90a0]">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-white">Chat</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-mono">
+                <span>Session: 1887f...</span>
+                <button
+                  onClick={() => setChatMessages([])}
+                  className="p-1 hover:text-white"
+                  title="Reset session"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Message Scroll Area */}
+            <div className="flex-1 p-3 overflow-y-auto space-y-2.5">
+              {chatMessages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center text-[#727582] text-xs">
+                  Ask AI assistant to adjust parameters, test conditions, or build workflows.
+                </div>
+              ) : (
+                chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <div
+                      className={`max-w-md p-2.5 rounded-xl border leading-relaxed text-xs ${
+                        msg.role === 'user'
+                          ? 'bg-[#22242b] border-[#333642] text-white'
+                          : 'bg-[#1e2026] border-[#2a2d36] text-[#d1d5db]'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Chat Input Box (Exact placeholder & styling from screenshot) */}
+            <form onSubmit={handleSendDockChat} className="p-3 border-t border-[#22242a] flex items-center gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type message, or press 'up' for previous one"
+                className="flex-1 bg-[#101114] border border-[#2a2d36] focus:border-[#ff6d5a] px-3 py-2 rounded-lg text-white placeholder-[#555866] outline-none text-xs"
+              />
+              <button
+                type="submit"
+                disabled={chatSending || !chatInput.trim()}
+                className="p-2 bg-[#ff6d5a] hover:bg-[#ea4b71] disabled:opacity-40 text-white rounded-lg transition-colors"
+                title="Send"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+
+          {/* Right Split Pane: Logs */}
+          <div className="w-1/2 flex flex-col">
+            {/* Logs Pane Header */}
+            <div className="h-9 px-4 border-b border-[#22242a] flex items-center justify-between text-[#8c90a0]">
+              <span className="font-semibold text-white">Logs</span>
+            </div>
+
+            {/* Logs Body */}
+            <div className="flex-1 p-4 overflow-y-auto flex items-center justify-center text-center">
+              {executionResult ? (
+                <div className="w-full text-left font-mono text-[11px] space-y-2">
+                  <div className="flex items-center justify-between text-white pb-2 border-b border-[#22242a]">
+                    <span>Status: <strong className={executionResult.status === 'success' ? 'text-[#10B981]' : 'text-[#EF4444]'}>{executionResult.status.toUpperCase()}</strong></span>
+                    <span>Duration: {executionResult.durationMs}ms</span>
+                  </div>
+                  <pre className="bg-[#101114] p-3 rounded border border-[#26282e] text-[#a0a5b8] max-h-40 overflow-auto">
+                    {JSON.stringify(executionResult.nodeResults, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-[#727582] text-xs">
+                  Nothing to display yet. Execute the workflow to see execution logs.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
