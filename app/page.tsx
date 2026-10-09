@@ -18,6 +18,10 @@ import { NodeConfigDrawer } from '@/components/drawers/NodeConfigDrawer';
 import { ExecutionDrawer } from '@/components/drawers/ExecutionDrawer';
 import { TemplatesModal } from '@/components/modals/TemplatesModal';
 import { SettingsModal } from '@/components/modals/SettingsModal';
+import { UniversalExtractorModal } from '@/components/extractor/UniversalExtractorModal';
+import { EmailComposerModal } from '@/components/email/EmailComposerModal';
+import { AiAssistantPanel, AI_MODELS } from '@/components/ai-assistant/AiAssistantPanel';
+import { ExtractedEmail } from '@/lib/email-extractor';
 import { SAMPLE_WORKFLOWS } from '@/lib/sample-workflows';
 import {
   NodeType,
@@ -38,11 +42,26 @@ export default function WorkflowBuilderPage() {
   const [executionResult, setExecutionResult] = useState<WorkflowExecutionResult | null>(null);
   const [isLogDrawerOpen, setIsLogDrawerOpen] = useState(false);
 
+  // Modals & Panels
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isExtractorOpen, setIsExtractorOpen] = useState(false);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
+  // Extractor & Email Composer state
+  const [extractedEmails, setExtractedEmails] = useState<ExtractedEmail[]>([]);
+  const [composerMode, setComposerMode] = useState<'single' | 'bulk'>('single');
+  const [targetComposerEmails, setTargetComposerEmails] = useState<ExtractedEmail[]>([]);
+
+  // AI Assistant active model state
+  const [selectedAiModel, setSelectedAiModel] = useState<string>('gpt-4o');
+
+  // API Credentials
   const [apiKeys, setApiKeys] = useState<{
     openaiApiKey?: string;
+    anthropicApiKey?: string;
+    geminiApiKey?: string;
     userEmail?: string;
     appPassword?: string;
     gmailToken?: string;
@@ -305,7 +324,6 @@ export default function WorkflowBuilderPage() {
     if (nodes.length === 0 || isRunning) return;
 
     setIsRunning(true);
-    // Mark all nodes as running
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -316,7 +334,6 @@ export default function WorkflowBuilderPage() {
       }))
     );
 
-    // Mark edges as running animation
     setEdges((eds) =>
       eds.map((e) => ({
         ...e,
@@ -342,7 +359,6 @@ export default function WorkflowBuilderPage() {
       setExecutionResult(result);
       setIsLogDrawerOpen(true);
 
-      // Map node results back to canvas
       const logMap = new Map(result.logs.map((l) => [l.nodeId, l]));
 
       setNodes((nds) =>
@@ -370,7 +386,6 @@ export default function WorkflowBuilderPage() {
         })
       );
 
-      // Celebrate success!
       if (result.success) {
         confetti({
           particleCount: 80,
@@ -412,6 +427,9 @@ export default function WorkflowBuilderPage() {
       if (e.key === 'Escape') {
         setSelectedNodeId(null);
         setIsLogDrawerOpen(false);
+        setIsExtractorOpen(false);
+        setIsComposerOpen(false);
+        setIsAiAssistantOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -425,6 +443,11 @@ export default function WorkflowBuilderPage() {
     setEdges(template.edges as Edge[]);
     setSelectedNodeId(null);
     setExecutionResult(null);
+  };
+
+  const handleLoadTemplateById = (templateId: string) => {
+    const t = SAMPLE_WORKFLOWS.find((tmpl) => tmpl.id === templateId);
+    if (t) handleSelectTemplate(t);
   };
 
   // Export Workflow as JSON
@@ -485,6 +508,55 @@ export default function WorkflowBuilderPage() {
     }
   };
 
+  // Extractor Actions: Bulk Send, Single Send, Inject into canvas
+  const handleBulkSendFromExtractor = (selected: ExtractedEmail[]) => {
+    setTargetComposerEmails(selected);
+    setComposerMode('bulk');
+    setIsExtractorOpen(false);
+    setIsComposerOpen(true);
+  };
+
+  const handleSingleSendFromExtractor = (email: ExtractedEmail) => {
+    setTargetComposerEmails([email]);
+    setComposerMode('single');
+    setIsExtractorOpen(false);
+    setIsComposerOpen(true);
+  };
+
+  const handleInjectIntoCanvas = (emailsToInject: ExtractedEmail[]) => {
+    const id = `node_email_list_${Math.random().toString(36).substring(2, 7)}`;
+    const recipients = emailsToInject.map((e) => ({
+      email: e.email,
+      domain: e.domain,
+      provider: e.provider,
+      isValid: true,
+    }));
+
+    const newNode: Node = {
+      id,
+      type: 'email_list_file_upload',
+      position: { x: 80, y: 160 },
+      data: {
+        id,
+        label: `Extracted Emails (${emailsToInject.length})`,
+        category: 'trigger',
+        nodeType: 'email_list_file_upload',
+        status: 'idle',
+        config: {
+          fileName: 'extracted_contacts.csv',
+          recipients,
+          totalCount: emailsToInject.length,
+          validCount: emailsToInject.length,
+          invalidCount: 0,
+        },
+      },
+    };
+
+    setNodes((nds) => [newNode, ...nds]);
+    setSelectedNodeId(id);
+    setIsExtractorOpen(false);
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0b0f17] select-none">
       {/* Top Header */}
@@ -496,11 +568,15 @@ export default function WorkflowBuilderPage() {
         onOpenTemplates={() => setIsTemplatesOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onToggleLogs={() => setIsLogDrawerOpen(!isLogDrawerOpen)}
+        onOpenExtractor={() => setIsExtractorOpen(true)}
+        onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
         onExportWorkflow={handleExportWorkflow}
         onImportWorkflow={handleImportWorkflow}
         onClearWorkflow={handleClearWorkflow}
         hasLogs={executionResult !== null}
         nodeCount={nodes.length}
+        extractedEmailCount={extractedEmails.length}
+        selectedAiModel={selectedAiModel}
       />
 
       {/* Main Workspace: Sidebar + Canvas */}
@@ -548,6 +624,40 @@ export default function WorkflowBuilderPage() {
         accept=".json"
         className="hidden"
         onChange={handleFileChange}
+      />
+
+      {/* Universal File Drag-and-Drop & Email Extractor Modal */}
+      <UniversalExtractorModal
+        isOpen={isExtractorOpen}
+        onClose={() => setIsExtractorOpen(false)}
+        extractedEmails={extractedEmails}
+        setExtractedEmails={setExtractedEmails}
+        onBulkSend={handleBulkSendFromExtractor}
+        onSingleSend={handleSingleSendFromExtractor}
+        onInjectIntoCanvas={handleInjectIntoCanvas}
+      />
+
+      {/* Single & Bulk Email Delivery Composer Modal */}
+      <EmailComposerModal
+        isOpen={isComposerOpen}
+        onClose={() => setIsComposerOpen(false)}
+        mode={composerMode}
+        targetEmails={targetComposerEmails}
+        apiKeys={apiKeys}
+      />
+
+      {/* AI Assistant Co-Pilot Side Panel with Multi-Model Selector */}
+      <AiAssistantPanel
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
+        selectedModel={selectedAiModel}
+        onSelectModel={setSelectedAiModel}
+        apiKeys={apiKeys}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onAddNodeToCanvas={handleAddNode}
+        onRunWorkflow={handleRunWorkflow}
+        onClearWorkflow={handleClearWorkflow}
+        onLoadTemplate={handleLoadTemplateById}
       />
 
       {/* Templates Modal */}

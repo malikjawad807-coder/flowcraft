@@ -1,19 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Key, Mail, ShieldCheck, Check, Sparkles, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { X, Key, Mail, ShieldCheck, Check, Sparkles, Eye, EyeOff, ExternalLink, Bot } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   apiKeys: {
     openaiApiKey?: string;
+    anthropicApiKey?: string;
+    geminiApiKey?: string;
     userEmail?: string;
     appPassword?: string;
     gmailToken?: string;
   };
   onSaveKeys: (keys: {
     openaiApiKey?: string;
+    anthropicApiKey?: string;
+    geminiApiKey?: string;
     userEmail?: string;
     appPassword?: string;
     gmailToken?: string;
@@ -27,11 +31,16 @@ export function SettingsModal({
   onSaveKeys,
 }: SettingsModalProps) {
   const [openaiKey, setOpenaiKey] = useState(apiKeys.openaiApiKey || '');
+  const [anthropicKey, setAnthropicKey] = useState(apiKeys.anthropicApiKey || '');
+  const [geminiKey, setGeminiKey] = useState(apiKeys.geminiApiKey || '');
+
   const [userEmail, setUserEmail] = useState(apiKeys.userEmail || '');
   const [appPassword, setAppPassword] = useState(apiKeys.appPassword || '');
   const [gmailToken, setGmailToken] = useState(apiKeys.gmailToken || '');
 
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showAppPassword, setShowAppPassword] = useState(false);
   const [showGmailToken, setShowGmailToken] = useState(false);
 
@@ -42,6 +51,8 @@ export function SettingsModal({
   const handleSave = () => {
     onSaveKeys({
       openaiApiKey: openaiKey,
+      anthropicApiKey: anthropicKey,
+      geminiApiKey: geminiKey,
       userEmail,
       appPassword,
       gmailToken,
@@ -54,7 +65,7 @@ export function SettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
       <div className="relative w-full max-w-lg bg-[#12161f] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
         {/* Header */}
         <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
@@ -63,8 +74,8 @@ export function SettingsModal({
               <Key className="w-4 h-4 text-[#ff6d5a]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Global Workspace Credentials</h2>
-              <p className="text-xs text-slate-400">Securely connect personal OpenAI and Gmail credentials</p>
+              <h2 className="text-sm font-bold text-white">API Keys &amp; Gmail Credentials</h2>
+              <p className="text-xs text-slate-400">Configure personal keys for OpenAI, Claude, Gemini, and Gmail</p>
             </div>
           </div>
           <button
@@ -82,9 +93,9 @@ export function SettingsModal({
             <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Personal OpenAI API Key</span>
+                <span>OpenAI API Key (ChatGPT / GPT-4o)</span>
               </span>
-              <span className="text-[10px] font-normal text-slate-500 font-mono">sk-proj-...</span>
+              <span className="text-[10px] font-mono text-slate-500">sk-...</span>
             </label>
             <div className="relative">
               <input
@@ -102,9 +113,60 @@ export function SettingsModal({
                 {showOpenaiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
-              Used across all OpenAI nodes that inherit workspace credentials. Leave blank to run sandbox simulations.
-            </p>
+          </div>
+
+          {/* Anthropic Claude API Key */}
+          <div className="space-y-1.5">
+            <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5 text-amber-400" />
+                <span>Anthropic API Key (Claude 3.5 Sonnet / Opus)</span>
+              </span>
+              <span className="text-[10px] font-mono text-slate-500">sk-ant-...</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showAnthropicKey ? 'text' : 'password'}
+                value={anthropicKey}
+                onChange={(e) => setAnthropicKey(e.target.value)}
+                placeholder="sk-ant-api03-..."
+                className="w-full bg-slate-900 text-xs px-3 py-2 pr-9 rounded-lg border border-slate-700 focus:border-amber-500 focus:outline-none font-mono text-amber-200"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAnthropicKey(!showAnthropicKey)}
+                className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300"
+              >
+                {showAnthropicKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Google Gemini API Key */}
+          <div className="space-y-1.5">
+            <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Google Gemini API Key (Gemini 1.5 Pro / Flash)</span>
+              </span>
+              <span className="text-[10px] font-mono text-slate-500">AIzaSy...</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showGeminiKey ? 'text' : 'password'}
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full bg-slate-900 text-xs px-3 py-2 pr-9 rounded-lg border border-slate-700 focus:border-cyan-500 focus:outline-none font-mono text-cyan-200"
+              />
+              <button
+                type="button"
+                onClick={() => setShowGeminiKey(!showGeminiKey)}
+                className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300"
+              >
+                {showGeminiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
 
           {/* Personal Gmail App Password */}
@@ -155,12 +217,9 @@ export function SettingsModal({
                 </button>
               </div>
             </div>
-            <p className="text-[10px] text-slate-400 leading-snug">
-              Enables live 100% verified email dispatches and bulk delivery from your own Gmail account.
-            </p>
           </div>
 
-          {/* Gmail OAuth Token (Alternative) */}
+          {/* Gmail OAuth Token */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
               <Mail className="w-3.5 h-3.5 text-red-400" />
@@ -182,15 +241,12 @@ export function SettingsModal({
                 {showGmailToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
-              Optional Google Cloud OAuth Bearer Token.
-            </p>
           </div>
 
           <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <span>
-              Credentials remain strictly stored in client memory. They are securely transmitted over HTTPS directly to the execution endpoints.
+              All API keys are maintained client-side in memory and securely transmitted to processing APIs. Leave any key blank to use sandbox simulations.
             </span>
           </div>
         </div>
