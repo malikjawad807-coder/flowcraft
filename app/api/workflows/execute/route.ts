@@ -3,6 +3,7 @@ import {
   getExecutionOrder,
   resolveTemplateVariables,
   simulateOpenAiOutput,
+  simulateVectorStoreSearch,
   getNestedValue,
   parseCsvToRecipients,
 } from '@/lib/workflow-engine';
@@ -97,6 +98,30 @@ export async function POST(req: NextRequest) {
               headers: { 'content-type': 'application/json', 'user-agent': 'WebhookClient/1.0' },
               body: config.payload || { event: 'user_signup', userId: 'usr_8923', email: 'test@example.com' },
               receivedAt: new Date().toISOString(),
+            };
+            break;
+          }
+
+          case 'vector_store': {
+            const rawQuery = config.searchQuery || '{{input_form_trigger.submittedValues.notes}}';
+            const resolvedQuery = resolveTemplateVariables(rawQuery, context);
+            const indexName = config.indexName || 'executive-longterm-memory';
+            const topK = config.topK ?? 3;
+            const searchResult = simulateVectorStoreSearch(resolvedQuery, indexName, topK, config.sampleDocuments);
+
+            outputPayload = {
+              provider: config.provider || 'pinecone',
+              indexName,
+              topK,
+              query: resolvedQuery,
+              memoryFound: searchResult.memoryFound,
+              matchesCount: searchResult.matchesCount,
+              results: searchResult.matches,
+              matches: searchResult.matches,
+              leadProfile: searchResult.leadProfile,
+              historicalNotes: searchResult.historicalNotes,
+              contextSummary: searchResult.contextSummary,
+              queriedAt: new Date().toISOString(),
             };
             break;
           }

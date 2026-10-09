@@ -397,7 +397,25 @@ export function AiAssistantPanel({
       </div>
 
       {/* Suggested Quick Command Chips */}
-      <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+      <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto text-[11px] scrollbar-none">
+        <button
+          onClick={() => handleSend('Load executive assistant workflow')}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/60 transition-colors flex items-center gap-1 font-medium"
+        >
+          <Sparkles className="w-3 h-3 text-cyan-400" /> Executive Workflow
+        </button>
+        <button
+          onClick={() => handleSend('Add vector db to canvas')}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center gap-1"
+        >
+          <Layers className="w-3 h-3 text-cyan-400" /> + Vector Memory
+        </button>
+        <button
+          onClick={() => handleSend('Add a Gmail node to canvas')}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3 text-red-400" /> + Gmail Node
+        </button>
         <button
           onClick={() => handleSend('Draft a cold sales email for B2B executives')}
           className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors"
@@ -411,14 +429,8 @@ export function AiAssistantPanel({
           Subject Lines
         </button>
         <button
-          onClick={() => handleSend('Add a Gmail node to canvas')}
-          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3 text-red-400" /> Add Gmail Node
-        </button>
-        <button
           onClick={() => handleSend('Run workflow')}
-          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center gap-1"
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 transition-colors flex items-center gap-1"
         >
           <Play className="w-3 h-3 text-emerald-400" /> Run Workflow
         </button>

@@ -19,6 +19,7 @@ import {
   Zap,
   Users,
   MailCheck,
+  Database,
 } from 'lucide-react';
 import { NodeType, NodeCategory } from '@/types/workflow';
 
@@ -94,6 +95,16 @@ export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
       iconColor: 'text-purple-400 bg-purple-500/15 border-purple-500/30',
       badge: 'GPT-4o',
       badgeColor: 'text-purple-300 bg-purple-950/60 border-purple-800/50',
+    },
+    {
+      type: 'vector_store',
+      label: 'Vector Database (Memory)',
+      category: 'ai',
+      description: 'Chroma / Pinecone semantic search for long-term memory & grounding',
+      icon: Database,
+      iconColor: 'text-cyan-400 bg-cyan-500/15 border-cyan-500/30',
+      badge: 'Memory',
+      badgeColor: 'text-cyan-300 bg-cyan-950/60 border-cyan-800/50',
     },
     {
       type: 'openai_classifier',

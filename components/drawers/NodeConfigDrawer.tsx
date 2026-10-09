@@ -29,9 +29,11 @@ import {
   CheckCircle2,
   AlertCircle,
   MailCheck,
+  Database,
 } from 'lucide-react';
 import { WorkflowNodeData, FormFieldDefinition, RecipientRecord } from '@/types/workflow';
 import { parseCsvToRecipients } from '@/lib/workflow-engine';
+import { EXECUTIVE_ASSISTANT_SYSTEM_PROMPT } from '@/lib/ai-assistant-prompts';
 
 interface NodeConfigDrawerProps {
   node: WorkflowNodeData | null;
@@ -692,16 +694,35 @@ export function NodeConfigDrawer({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    System Instructions
-                  </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-300">
+                      System Instructions / Master Prompt
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleConfigChange('systemPrompt', EXECUTIVE_ASSISTANT_SYSTEM_PROMPT)}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800/60 transition-colors cursor-pointer"
+                      title="Load the Advanced AI Executive Assistant Master Prompt"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>⚡ Load Executive Master Prompt</span>
+                    </button>
+                  </div>
+
+                  {config.systemPrompt && config.systemPrompt.includes('AI Executive Assistant') && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950/40 border border-amber-800/50 text-[10px] font-mono text-amber-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>Active: Advanced AI Executive Assistant (Vector DB + Gmail Protocol)</span>
+                    </div>
+                  )}
+
                   <textarea
-                    rows={2}
+                    rows={config.systemPrompt?.length > 200 ? 5 : 2}
                     value={config.systemPrompt || ''}
                     onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
-                    className="w-full bg-slate-900 text-xs p-2.5 rounded-lg border border-slate-700 focus:border-purple-500 focus:outline-none font-sans"
-                    placeholder="You are an expert sales outreach AI..."
+                    className="w-full bg-slate-900 text-xs p-2.5 rounded-lg border border-slate-700 focus:border-purple-500 focus:outline-none font-mono text-slate-200 leading-relaxed"
+                    placeholder="Enter system prompt or click 'Load Executive Master Prompt' above..."
                   />
                 </div>
 
@@ -712,6 +733,36 @@ export function NodeConfigDrawer({
                     </label>
                     <span className="text-[10px] text-purple-400 font-mono">Supports &#123;&#123;variables&#125;&#125;</span>
                   </div>
+
+                  {/* Quick Variable Inserters for Vector DB Memory */}
+                  <div className="flex flex-wrap items-center gap-1 mb-1.5 font-mono text-[9px]">
+                    <span className="text-slate-500">Insert Memory:</span>
+                    <button
+                      type="button"
+                      onClick={() => insertVariable('node_vector_memory.results', 'userPrompt')}
+                      className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900/60"
+                      title="Insert Vector DB search results"
+                    >
+                      + &#123;&#123;vector.results&#125;&#125;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertVariable('node_vector_memory.leadProfile', 'userPrompt')}
+                      className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900/60"
+                      title="Insert matched lead profile"
+                    >
+                      + &#123;&#123;vector.leadProfile&#125;&#125;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertVariable('node_vector_memory.memoryFound', 'userPrompt')}
+                      className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900/60"
+                      title="Insert memory status (for Zero-Hallucination policy)"
+                    >
+                      + &#123;&#123;vector.memoryFound&#125;&#125;
+                    </button>
+                  </div>
+
                   <textarea
                     rows={5}
                     value={config.userPrompt || ''}
@@ -719,6 +770,147 @@ export function NodeConfigDrawer({
                     className="w-full bg-slate-900 text-xs p-2.5 rounded-lg border border-slate-700 focus:border-purple-500 focus:outline-none font-mono text-purple-200 leading-relaxed"
                     placeholder="Draft a personalized outreach pitch to {{item.name}} at {{item.company}}..."
                   />
+                </div>
+              </div>
+            )}
+
+            {/* VECTOR STORE / LONG-TERM MEMORY TOOL CONFIGURATION */}
+            {nodeType === 'vector_store' && (
+              <div className="space-y-5">
+                {/* 1. PROVIDER & INDEX NAME */}
+                <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-900/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-300">
+                      <Database className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Vector Store Provider</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-cyan-900/40 text-cyan-300 border border-cyan-800/60 px-1.5 py-0.5 rounded">
+                      Long-Term Memory Tool
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        Vector Engine
+                      </label>
+                      <select
+                        value={config.provider || 'pinecone'}
+                        onChange={(e) => handleConfigChange('provider', e.target.value)}
+                        className="w-full bg-slate-900 text-xs px-3 py-2 rounded-lg border border-slate-700 focus:border-cyan-500 focus:outline-none font-mono text-cyan-300"
+                      >
+                        <option value="pinecone">Pinecone (Serverless / Pods)</option>
+                        <option value="chroma">ChromaDB (Local / Managed)</option>
+                        <option value="qdrant">Qdrant Vector DB</option>
+                        <option value="weaviate">Weaviate Cloud</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        Similarity Metric
+                      </label>
+                      <select
+                        value={config.similarityMetric || 'cosine'}
+                        onChange={(e) => handleConfigChange('similarityMetric', e.target.value)}
+                        className="w-full bg-slate-900 text-xs px-3 py-2 rounded-lg border border-slate-700 focus:border-cyan-500 focus:outline-none font-mono text-slate-300"
+                      >
+                        <option value="cosine">Cosine Similarity</option>
+                        <option value="euclidean">Euclidean Distance</option>
+                        <option value="dot_product">Dot Product</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                      Target Index / Collection Name
+                    </label>
+                    <input
+                      type="text"
+                      value={config.indexName || 'executive-longterm-memory'}
+                      onChange={(e) => handleConfigChange('indexName', e.target.value)}
+                      placeholder="executive-longterm-memory"
+                      className="w-full bg-slate-950 text-xs px-3 py-2 rounded-lg border border-slate-800 focus:border-cyan-500 focus:outline-none font-mono text-cyan-200"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. SEMANTIC QUERY & TOP-K */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Semantic Search Query
+                    </label>
+                    <span className="text-[10px] text-cyan-400 font-mono">Supports &#123;&#123;variables&#125;&#125;</span>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={config.searchQuery || ''}
+                    onChange={(e) => handleConfigChange('searchQuery', e.target.value)}
+                    placeholder="{{input_form_trigger.submittedValues.notes}}"
+                    className="w-full bg-slate-900 text-xs p-2.5 rounded-lg border border-slate-700 focus:border-cyan-500 focus:outline-none font-mono text-cyan-200"
+                  />
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-slate-300">
+                        Top K Matches ({config.topK ?? 3})
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-mono">Max contextual records retrieved</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value={config.topK ?? 3}
+                      onChange={(e) => handleConfigChange('topK', parseInt(e.target.value, 10))}
+                      className="w-full accent-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. PRELOADED KNOWLEDGE / MEMORY RECORDS */}
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300">
+                      Indexed Knowledge &amp; Past Interactions
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      3 Active Records
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-0.5">
+                      <div className="font-semibold text-white flex justify-between">
+                        <span>Alex Chen (TechCorp)</span>
+                        <span className="text-[10px] text-cyan-400 font-mono">VP Engineering</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Interested in visual workflow automation. Prefers concise emails with ROI metrics.
+                      </p>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-0.5">
+                      <div className="font-semibold text-white flex justify-between">
+                        <span>Sarah Miller (GrowthLab)</span>
+                        <span className="text-[10px] text-cyan-400 font-mono">Director Ops</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Evaluating bulk Gmail delivery with OpenAI reasoning and rate-limit safety.
+                      </p>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-0.5">
+                      <div className="font-semibold text-white flex justify-between">
+                        <span>Jordan Smith (CloudPulse)</span>
+                        <span className="text-[10px] text-cyan-400 font-mono">Head of AI</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Prefers Claude 3.5 Sonnet &amp; GPT-4o. Requested demo of universal email extractor.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

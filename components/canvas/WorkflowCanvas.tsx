@@ -19,6 +19,7 @@ import {
 
 import { TriggerNode } from '@/components/nodes/TriggerNode';
 import { AiNode } from '@/components/nodes/AiNode';
+import { VectorStoreNode } from '@/components/nodes/VectorStoreNode';
 import { GmailNode } from '@/components/nodes/GmailNode';
 import { TransformNode } from '@/components/nodes/TransformNode';
 import { ConditionNode } from '@/components/nodes/ConditionNode';
@@ -58,6 +59,7 @@ function InnerWorkflowCanvas({
       webhook_trigger: TriggerNode,
       openai_llm: AiNode,
       openai_classifier: AiNode,
+      vector_store: VectorStoreNode,
       gmail_send: GmailNode,
       code_transform: TransformNode,
       condition_filter: ConditionNode,

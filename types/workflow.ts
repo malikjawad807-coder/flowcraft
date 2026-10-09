@@ -7,9 +7,21 @@ export type NodeType =
   | 'email_list_file_upload'
   | 'openai_llm'
   | 'openai_classifier'
+  | 'vector_store'
   | 'gmail_send'
   | 'code_transform'
   | 'condition_filter';
+
+export interface VectorStoreConfig {
+  provider: 'chroma' | 'pinecone' | 'qdrant' | 'weaviate';
+  indexName: string;
+  topK: number;
+  searchQuery: string;
+  similarityMetric?: 'cosine' | 'euclidean' | 'dot_product';
+  namespace?: string;
+  filterEntity?: string;
+  sampleDocuments?: any[];
+}
 
 export type NodeExecutionStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 

@@ -1,4 +1,8 @@
 import { WorkflowTemplate } from '@/types/workflow';
+import {
+  EXECUTIVE_ASSISTANT_SYSTEM_PROMPT,
+  EXECUTIVE_ASSISTANT_SAMPLE_MEMORY,
+} from '@/lib/ai-assistant-prompts';
 
 const SAMPLE_CSV = `email,name,company,role
 alex.chen@techcorp.io,Alex Chen,TechCorp,VP Engineering
@@ -13,6 +17,139 @@ liam.johnson@apixcel.com,Liam Johnson,APIXcel,Head of Partnerships
 ava.patel@nexuscloud.ai,Ava Patel,NexusCloud,Director of Engineering`;
 
 export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
+  {
+    id: 'ai-executive-assistant-memory',
+    name: 'AI Executive Assistant (Memory-First Vector DB + Gmail API)',
+    description: 'Autonomous AI Executive Assistant coordinating between Chroma/Pinecone Vector Database long-term memory and Gmail API for contextual, zero-hallucination communications.',
+    category: 'Executive & AI Agent',
+    icon: 'Sparkles',
+    badge: 'Master Agent',
+    nodes: [
+      {
+        id: 'node_intake_trigger',
+        type: 'input_form_trigger',
+        position: { x: 40, y: 180 },
+        data: {
+          id: 'node_intake_trigger',
+          label: 'Executive Command & Lead Intake',
+          category: 'trigger',
+          nodeType: 'input_form_trigger',
+          status: 'idle',
+          config: {
+            formTitle: 'Executive Assistant Command Deck',
+            formDescription: 'Submit command or lead inquiry to trigger memory search and email action',
+            fields: [
+              { id: 'f1', name: 'lead_name', label: 'Contact / Lead Name', type: 'text', defaultValue: 'Alex Chen', required: true },
+              { id: 'f2', name: 'company', label: 'Company / Organization', type: 'text', defaultValue: 'TechCorp', required: true },
+              { id: 'f3', name: 'command_request', label: 'Executive Directive', type: 'textarea', defaultValue: 'Prepare a contextual follow-up email regarding workflow automation and ROI metrics.', required: true },
+            ],
+            submittedValues: {
+              lead_name: 'Alex Chen',
+              company: 'TechCorp',
+              command_request: 'Prepare a contextual follow-up email regarding workflow automation and ROI metrics.',
+            },
+          },
+        },
+      },
+      {
+        id: 'node_vector_memory',
+        type: 'vector_store',
+        position: { x: 420, y: 150 },
+        data: {
+          id: 'node_vector_memory',
+          label: 'Pinecone Long-Term Memory (Vector DB)',
+          category: 'ai',
+          nodeType: 'vector_store',
+          status: 'idle',
+          config: {
+            provider: 'pinecone',
+            indexName: 'executive-longterm-memory',
+            topK: 3,
+            searchQuery: '{{node_intake_trigger.submittedValues.lead_name}} {{node_intake_trigger.submittedValues.company}}',
+            similarityMetric: 'cosine',
+            namespace: 'vip-leads',
+            sampleDocuments: EXECUTIVE_ASSISTANT_SAMPLE_MEMORY,
+          },
+        },
+      },
+      {
+        id: 'node_ai_executive',
+        type: 'openai_llm',
+        position: { x: 800, y: 150 },
+        data: {
+          id: 'node_ai_executive',
+          label: 'Advanced AI Executive Assistant',
+          category: 'ai',
+          nodeType: 'openai_llm',
+          status: 'idle',
+          config: {
+            apiKeySource: 'global',
+            model: 'gpt-4o',
+            executionMode: 'single',
+            systemPrompt: EXECUTIVE_ASSISTANT_SYSTEM_PROMPT,
+            userPrompt: `[USER COMMAND / INQUIRY]
+Target Entity: {{node_intake_trigger.submittedValues.lead_name}} ({{node_intake_trigger.submittedValues.company}})
+User Command: {{node_intake_trigger.submittedValues.command_request}}
+
+[RETRIEVED LONG-TERM MEMORY (VECTOR DATABASE)]
+Index Name: {{node_vector_memory.indexName}}
+Memory Grounding Status: {{node_vector_memory.memoryFound}}
+Retrieved Historical Notes:
+{{node_vector_memory.historicalNotes}}
+
+[DIRECTIVE]: Strictly follow the 4-step workflow protocol. Ground response in retrieved vector memory or declare a new lead under the zero-hallucination policy. Format email response for Gmail API review.`,
+            temperature: 0.4,
+            maxTokens: 600,
+            mockFallback: true,
+          },
+        },
+      },
+      {
+        id: 'node_gmail_dispatcher',
+        type: 'gmail_send',
+        position: { x: 1200, y: 180 },
+        data: {
+          id: 'node_gmail_dispatcher',
+          label: 'Gmail API Tool Access',
+          category: 'action',
+          nodeType: 'gmail_send',
+          status: 'idle',
+          config: {
+            authMethod: 'sandbox',
+            sendMode: 'single',
+            to: 'alex.chen@techcorp.io',
+            subject: 'Following up on our workflow automation discussion',
+            body: '{{node_ai_executive.output}}',
+            isHtml: false,
+            sendAsDraft: true,
+          },
+        },
+      },
+    ],
+    edges: [
+      {
+        id: 'e-trigger-vector',
+        source: 'node_intake_trigger',
+        target: 'node_vector_memory',
+        animated: true,
+        style: { stroke: '#06b6d4', strokeWidth: 2 },
+      },
+      {
+        id: 'e-vector-ai',
+        source: 'node_vector_memory',
+        target: 'node_ai_executive',
+        animated: true,
+        style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      },
+      {
+        id: 'e-ai-gmail',
+        source: 'node_ai_executive',
+        target: 'node_gmail_dispatcher',
+        animated: true,
+        style: { stroke: '#ef4444', strokeWidth: 2 },
+      },
+    ],
+  },
   {
     id: 'bulk-outreach-email-list',
     name: 'Bulk Personalized Cold Outreach (CSV + OpenAI + Gmail)',

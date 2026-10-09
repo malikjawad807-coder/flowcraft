@@ -4,6 +4,7 @@ import {
   WorkflowExecutionResult,
   WorkflowNodeData,
 } from '@/types/workflow';
+import { EXECUTIVE_ASSISTANT_SAMPLE_MEMORY } from '@/lib/ai-assistant-prompts';
 
 // Helper to extract nested properties: get(obj, 'a.b.c') or get(obj, 'a[0].b')
 export function getNestedValue(obj: any, path: string): any {
@@ -206,6 +207,43 @@ export function getExecutionOrder(nodes: any[], edges: any[]): string[] {
   return order;
 }
 
+// Simulate semantic search retrieval from Vector Database (Chroma / Pinecone)
+export function simulateVectorStoreSearch(
+  query: string,
+  indexName: string = 'executive-longterm-memory',
+  topK: number = 3,
+  customDocs?: any[]
+) {
+  const qLower = (query || '').toLowerCase();
+  const docs = customDocs && customDocs.length > 0 ? customDocs : EXECUTIVE_ASSISTANT_SAMPLE_MEMORY;
+
+  // Search for matching keywords or entities
+  const matched = docs.filter((doc) => {
+    const text = `${doc.entity} ${doc.role} ${doc.email} ${doc.notes}`.toLowerCase();
+    const queryTokens = qLower.split(/[\s,._-]+/).filter((w) => w.length > 2);
+    return queryTokens.some((token) => text.includes(token));
+  });
+
+  const results = matched.slice(0, topK);
+  const memoryFound = matched.length > 0;
+
+  return {
+    indexName,
+    topK,
+    query,
+    memoryFound,
+    matchesCount: results.length,
+    matches: results,
+    leadProfile: results.length > 0 ? results[0] : null,
+    historicalNotes: results.length > 0
+      ? results.map((r) => `${r.entity} (${r.role}): ${r.notes}`).join('\n')
+      : '',
+    contextSummary: memoryFound
+      ? `Retrieved ${results.length} contextual record(s) from Vector DB [${indexName}]. Grounded in past interactions.`
+      : `No prior history found in Vector DB [${indexName}] for query "${query}". Marking as new lead under zero-hallucination policy.`,
+  };
+}
+
 // Client/Server mock execution helper for OpenAI when API key is absent or in demo mode
 export function simulateOpenAiOutput(
   prompt: string,
@@ -214,6 +252,88 @@ export function simulateOpenAiOutput(
   inputData: any
 ): string {
   const pLower = prompt.toLowerCase();
+  const sLower = (systemPrompt || '').toLowerCase();
+
+  // 1. EXECUTIVE ASSISTANT MASTER PROMPT HANDLING
+  if (
+    sLower.includes('executive assistant') ||
+    sLower.includes('advanced ai assistant') ||
+    sLower.includes('memory-first execution') ||
+    sLower.includes('zero-hallucination') ||
+    sLower.includes('vector database') ||
+    pLower.includes('executive assistant') ||
+    pLower.includes('long-term memory') ||
+    pLower.includes('vector memory')
+  ) {
+    // Check if inputData directly has vector fields, or scan within context nodes
+    let vectorOutput: any = inputData?.memoryFound !== undefined ? inputData : null;
+    let intakeOutput: any = inputData?.submittedValues ? inputData : null;
+
+    if (!vectorOutput && typeof inputData === 'object' && inputData !== null) {
+      for (const val of Object.values(inputData)) {
+        if (val && typeof val === 'object') {
+          if ((val as any).memoryFound !== undefined || (val as any).matches !== undefined) {
+            vectorOutput = val;
+          }
+          if ((val as any).submittedValues) {
+            intakeOutput = val;
+          }
+        }
+      }
+    }
+
+    const memFound = vectorOutput?.memoryFound ?? (vectorOutput?.matches && vectorOutput?.matches?.length > 0);
+    const profile = vectorOutput?.leadProfile || vectorOutput?.matches?.[0] || inputData?.item;
+    const targetName = profile?.entity || intakeOutput?.submittedValues?.lead_name || inputData?.name || 'Valued Partner';
+    const targetCompany = profile?.company || intakeOutput?.submittedValues?.company || 'Company';
+    const indexName = vectorOutput?.indexName || 'executive-longterm-memory';
+
+    if (memFound && profile) {
+      return `[AI Executive Assistant | Vector Grounded Execution]
+
+• Vector Search Status: Connected to Vector DB [${indexName}]
+• Context Retrieved: Grounded with past profile for ${profile.entity} (${profile.role})
+• Historical Notes: "${profile.notes}"
+
+Subject: Following up on our workflow automation discussion
+
+Dear ${profile.entity.split(' ')[0]},
+
+I hope you are having a productive week. Following up on our previous conversation regarding workflow automation and ROI metrics, I wanted to confirm that we have updated our multi-agent pipelines to support instant Gmail delivery and vector memory synchronization.
+
+Based on your team's focus on accelerating reliable data delivery, would you like to review the proposed architecture draft this Thursday?
+
+Looking forward to your thoughts.
+
+Best regards,
+Executive AI Office
+FlowCraft Automation Studio
+
+---
+[Action Status]: Email drafted and formatted for authorized Gmail API dispatch. Ready for user review or automatic queue.`;
+    } else {
+      // Zero-hallucination directive: Explicitly state this is a new lead
+      return `[AI Executive Assistant | Zero-Hallucination Directive]
+
+• Vector Search Status: Semantic query completed. Zero prior conversations or historical notes found in Vector Database.
+• Note: This is a brand new lead/interaction. No prior history was invented.
+
+Subject: Introducing FlowCraft Visual Workflow Automation
+
+Hello ${targetName},
+
+I am reaching out from FlowCraft. As this is our first interaction, I wanted to introduce our autonomous workflow studio, designed to coordinate multi-model AI reasoning with direct Gmail execution.
+
+If your team is exploring ways to streamline operations and lead communications, I would be delighted to share a concise 5-minute overview.
+
+Best regards,
+Executive AI Office
+FlowCraft Automation Studio
+
+---
+[Action Status]: New lead communication prepared. Draft saved for user review.`;
+    }
+  }
 
   // If prompt is personalizing an email to a recipient
   if (inputData?.item || inputData?.name || inputData?.company || pLower.includes('personalized')) {

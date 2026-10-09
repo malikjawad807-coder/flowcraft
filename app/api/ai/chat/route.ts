@@ -24,6 +24,14 @@ export async function POST(req: NextRequest) {
     let workflowAction: any = null;
     if (lastMsgLower.includes('add gmail') || lastMsgLower.includes('create gmail')) {
       workflowAction = { type: 'ADD_NODE', nodeType: 'gmail_send', label: 'Gmail Auto-Send' };
+    } else if (
+      lastMsgLower.includes('add vector') ||
+      lastMsgLower.includes('add pinecone') ||
+      lastMsgLower.includes('add chroma') ||
+      lastMsgLower.includes('vector db') ||
+      lastMsgLower.includes('vector store')
+    ) {
+      workflowAction = { type: 'ADD_NODE', nodeType: 'vector_store', label: 'Vector Database (Memory)' };
     } else if (lastMsgLower.includes('add openai') || lastMsgLower.includes('add ai node') || lastMsgLower.includes('add claude') || lastMsgLower.includes('add gemini')) {
       workflowAction = { type: 'ADD_NODE', nodeType: 'openai_llm', label: 'AI Processing' };
     } else if (lastMsgLower.includes('add email list') || lastMsgLower.includes('add csv') || lastMsgLower.includes('add extractor')) {
@@ -34,6 +42,12 @@ export async function POST(req: NextRequest) {
       workflowAction = { type: 'RUN_WORKFLOW' };
     } else if (lastMsgLower.includes('clear canvas') || lastMsgLower.includes('clear workflow')) {
       workflowAction = { type: 'CLEAR_CANVAS' };
+    } else if (
+      lastMsgLower.includes('load executive') ||
+      lastMsgLower.includes('executive assistant') ||
+      lastMsgLower.includes('vector template')
+    ) {
+      workflowAction = { type: 'LOAD_TEMPLATE', templateId: 'ai-executive-assistant-memory' };
     } else if (lastMsgLower.includes('load outreach') || lastMsgLower.includes('cold outreach template')) {
       workflowAction = { type: 'LOAD_TEMPLATE', templateId: 'bulk-outreach-email-list' };
     }
@@ -163,10 +177,18 @@ export async function POST(req: NextRequest) {
 
     if (workflowAction?.type === 'ADD_NODE') {
       simulatedReply = `I've added the **${workflowAction.label}** node to your workflow canvas! You can click on it anytime to configure custom parameters or link it to other triggers.`;
+    } else if (workflowAction?.type === 'LOAD_TEMPLATE') {
+      if (workflowAction.templateId === 'ai-executive-assistant-memory') {
+        simulatedReply = `Loaded the **AI Executive Assistant** workflow onto the canvas!\n\nThis pipeline orchestrates:\n1. **Executive Command & Lead Intake** (Input Form Trigger)\n2. **Vector Database Memory** (Pinecone/Chroma semantic grounding)\n3. **Advanced AI Executive Assistant** (with the official Master System Prompt)\n4. **Gmail API Tool Access** (draft/send with authorized credentials)\n\nClick **Run Workflow** or inspect any node drawer to review configuration!`;
+      } else {
+        simulatedReply = `Loaded the requested starter template onto your canvas!`;
+      }
     } else if (workflowAction?.type === 'RUN_WORKFLOW') {
       simulatedReply = `Triggering full workflow execution! The engine is now processing connected nodes in dependency order.`;
     } else if (workflowAction?.type === 'CLEAR_CANVAS') {
       simulatedReply = `Cleared the canvas workspace. You can now drag new nodes or load a starter template!`;
+    } else if (lastMsgLower.includes('vector') || lastMsgLower.includes('pinecone') || lastMsgLower.includes('chroma') || lastMsgLower.includes('memory')) {
+      simulatedReply = `**Vector Database Memory System Active**\n\n• **Directives:** Memory-First Execution with zero-hallucination policy.\n• **Supported Backends:** Pinecone, Chroma, Qdrant, Weaviate.\n• **Available Variables:** \`{{node_vector_memory.historicalNotes}}\`, \`{{node_vector_memory.memoryFound}}\`, and \`{{node_vector_memory.matches}}\`.\n\nYou can connect this node before your AI Agent node to automatically ground responses in past interactions before triggering the Gmail API!`;
     } else if (lastMsgLower.includes('subject') || lastMsgLower.includes('title')) {
       simulatedReply = `Here are 3 high-converting subject line suggestions:\n\n1. **"Quick question regarding {{item.company}}'s AI workflows"** (High Open Rate: ~64%)\n2. **"{{item.name}}, saw your team's work on automation"** (Personalized & Direct)\n3. **"Scaling outbound pipelines at {{item.company}} without the manual grind"** (Value-driven)`;
     } else if (lastMsgLower.includes('draft') || lastMsgLower.includes('sales') || lastMsgLower.includes('cold') || lastMsgLower.includes('email')) {

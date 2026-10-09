@@ -220,6 +220,19 @@ export default function WorkflowBuilderPage() {
           };
           break;
 
+        case 'vector_store':
+          category = 'ai';
+          label = 'Vector Database Memory';
+          config = {
+            provider: 'pinecone',
+            indexName: 'executive-longterm-memory',
+            topK: 3,
+            searchQuery: '{{input_form_trigger.submittedValues.notes}}',
+            similarityMetric: 'cosine',
+            namespace: 'vip-leads',
+          };
+          break;
+
         case 'gmail_send':
           category = 'action';
           label = 'Gmail Dispatch';
