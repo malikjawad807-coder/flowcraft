@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  Users,
+  MailCheck,
 } from 'lucide-react';
 import { NodeType, NodeCategory } from '@/types/workflow';
 
@@ -41,6 +43,16 @@ export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
 
   const paletteItems: PaletteItem[] = [
     // Triggers
+    {
+      type: 'email_list_file_upload',
+      label: 'Email List File Upload',
+      category: 'trigger',
+      description: 'Upload CSV, TXT, or JSON file of email contacts with auto-validation',
+      icon: Users,
+      iconColor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+      badge: 'CSV List',
+      badgeColor: 'text-emerald-300 bg-emerald-950/60 border-emerald-800/50',
+    },
     {
       type: 'input_form_trigger',
       label: 'Input Form Trigger',

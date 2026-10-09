@@ -1,6 +1,124 @@
 import { WorkflowTemplate } from '@/types/workflow';
 
+const SAMPLE_CSV = `email,name,company,role
+alex.chen@techcorp.io,Alex Chen,TechCorp,VP Engineering
+sarah.miller@growthlab.com,Sarah Miller,GrowthLab,Director of Operations
+jordan.smith@cloudpulse.ai,Jordan Smith,CloudPulse,Head of AI
+emily.davis@fintechhub.net,Emily Davis,FintechHub,Lead Product Manager
+marcus.vance@databridge.co,Marcus Vance,DataBridge,CTO
+olivia.wang@salespeak.io,Olivia Wang,SalesPeak,VP Sales Operations
+david.ross@hyperflow.dev,David Ross,HyperFlow,Principal Architect
+sophia.martinez@swiftscale.co,Sophia Martinez,SwiftScale,Chief Operations Officer
+liam.johnson@apixcel.com,Liam Johnson,APIXcel,Head of Partnerships
+ava.patel@nexuscloud.ai,Ava Patel,NexusCloud,Director of Engineering`;
+
 export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
+  {
+    id: 'bulk-outreach-email-list',
+    name: 'Bulk Personalized Cold Outreach (CSV + OpenAI + Gmail)',
+    description: 'Upload a list of contact emails from a file, generate bespoke AI outreach pitches with OpenAI in batch, and dispatch bulk emails via Gmail.',
+    category: 'Sales & Growth',
+    icon: 'Users',
+    badge: 'New & Bulk',
+    nodes: [
+      {
+        id: 'node_csv_upload',
+        type: 'email_list_file_upload',
+        position: { x: 50, y: 180 },
+        data: {
+          id: 'node_csv_upload',
+          label: 'Leads CSV Upload (10 Contacts)',
+          category: 'trigger',
+          nodeType: 'email_list_file_upload',
+          status: 'idle',
+          config: {
+            fileName: 'q4_enterprise_leads.csv',
+            rawContent: SAMPLE_CSV,
+            emailColumn: 'email',
+            nameColumn: 'name',
+            companyColumn: 'company',
+            totalCount: 10,
+            validCount: 10,
+            invalidCount: 0,
+            recipients: [
+              { email: 'alex.chen@techcorp.io', name: 'Alex Chen', company: 'TechCorp', role: 'VP Engineering', isValid: true },
+              { email: 'sarah.miller@growthlab.com', name: 'Sarah Miller', company: 'GrowthLab', role: 'Director of Operations', isValid: true },
+              { email: 'jordan.smith@cloudpulse.ai', name: 'Jordan Smith', company: 'CloudPulse', role: 'Head of AI', isValid: true },
+              { email: 'emily.davis@fintechhub.net', name: 'Emily Davis', company: 'FintechHub', role: 'Lead Product Manager', isValid: true },
+              { email: 'marcus.vance@databridge.co', name: 'Marcus Vance', company: 'DataBridge', role: 'CTO', isValid: true },
+              { email: 'olivia.wang@salespeak.io', name: 'Olivia Wang', company: 'SalesPeak', role: 'VP Sales Operations', isValid: true },
+              { email: 'david.ross@hyperflow.dev', name: 'David Ross', company: 'HyperFlow', role: 'Principal Architect', isValid: true },
+              { email: 'sophia.martinez@swiftscale.co', name: 'Sophia Martinez', company: 'SwiftScale', role: 'Chief Operations Officer', isValid: true },
+              { email: 'liam.johnson@apixcel.com', name: 'Liam Johnson', company: 'APIXcel', role: 'Head of Partnerships', isValid: true },
+              { email: 'ava.patel@nexuscloud.ai', name: 'Ava Patel', company: 'NexusCloud', role: 'Director of Engineering', isValid: true },
+            ],
+          },
+        },
+      },
+      {
+        id: 'node_openai_batch',
+        type: 'openai_llm',
+        position: { x: 450, y: 150 },
+        data: {
+          id: 'node_openai_batch',
+          label: 'OpenAI Bulk Personalizer',
+          category: 'ai',
+          nodeType: 'openai_llm',
+          status: 'idle',
+          config: {
+            apiKeySource: 'global',
+            model: 'gpt-4o-mini',
+            executionMode: 'batch',
+            batchSourceField: 'node_csv_upload.recipients',
+            systemPrompt: 'You are an executive outreach specialist. Craft a hyper-relevant, polite 3-sentence introduction tailored to the contact.',
+            userPrompt: 'Write a personalized outreach email to {{item.name}} who leads as {{item.role}} at {{item.company}}.\nMention how FlowCraft can automate their AI pipelines and invite them to explore a quick demo.',
+            temperature: 0.7,
+            maxTokens: 300,
+            responseFormat: 'text',
+            mockFallback: true,
+          },
+        },
+      },
+      {
+        id: 'node_gmail_bulk',
+        type: 'gmail_send',
+        position: { x: 880, y: 180 },
+        data: {
+          id: 'node_gmail_bulk',
+          label: 'Gmail Bulk Sender',
+          category: 'action',
+          nodeType: 'gmail_send',
+          status: 'idle',
+          config: {
+            authMethod: 'sandbox',
+            sendMode: 'bulk',
+            bulkRecipientSource: 'node_openai_batch.items',
+            rateLimitDelayMs: 200,
+            subject: 'Quick question for {{item.name}} regarding {{item.company}} automation',
+            body: 'Hi {{item.name}},\n\n{{personalizedText}}\n\nBest regards,\nJordan Lee\nFlowCraft Studio',
+            isHtml: false,
+            sendAsDraft: false,
+          },
+        },
+      },
+    ],
+    edges: [
+      {
+        id: 'e-csv-ai',
+        source: 'node_csv_upload',
+        target: 'node_openai_batch',
+        animated: true,
+        style: { stroke: '#7c3aed', strokeWidth: 2 },
+      },
+      {
+        id: 'e-ai-gmail',
+        source: 'node_openai_batch',
+        target: 'node_gmail_bulk',
+        animated: true,
+        style: { stroke: '#dc2626', strokeWidth: 2 },
+      },
+    ],
+  },
   {
     id: 'customer-support-ai-responder',
     name: 'Customer Support AI Classifier & Gmail Responder',
@@ -48,7 +166,9 @@ export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
           nodeType: 'openai_llm',
           status: 'idle',
           config: {
+            apiKeySource: 'global',
             model: 'gpt-4o-mini',
+            executionMode: 'single',
             systemPrompt: 'You are an elite customer success triage AI. Analyze the customer inquiry, categorize urgency, and write a warm, professional, actionable reply.',
             userPrompt: 'Analyze this support ticket:\nCustomer: {{node_form_trigger.submittedValues.customerName}}\nEmail: {{node_form_trigger.submittedValues.customerEmail}}\nCategory: {{node_form_trigger.submittedValues.issueCategory}}\nMessage: {{node_form_trigger.submittedValues.message}}\n\nPlease produce a friendly, reassuring reply addressing their feature request.',
             temperature: 0.7,
@@ -69,6 +189,8 @@ export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
           nodeType: 'gmail_send',
           status: 'idle',
           config: {
+            authMethod: 'sandbox',
+            sendMode: 'single',
             to: '{{node_form_trigger.submittedValues.customerEmail}}',
             cc: 'support-team@company.com',
             subject: 'We received your feedback: {{node_form_trigger.submittedValues.issueCategory}} (Ticket #{{runId}})',
@@ -147,7 +269,9 @@ export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
           nodeType: 'openai_llm',
           status: 'idle',
           config: {
+            apiKeySource: 'global',
             model: 'gpt-4o',
+            executionMode: 'single',
             systemPrompt: 'You are an expert technical recruiter and talent evaluator. Analyze the resume profile, calculate fit score out of 100, and highlight key strengths.',
             userPrompt: 'Evaluate this candidate profile for Senior Workflow Solutions Architect:\n{{node_file_trigger.sampleFileContent}}\n\nProvide: Match Score, Technical Strengths, and Recommendation for Interview.',
             temperature: 0.5,
@@ -168,6 +292,8 @@ export const SAMPLE_WORKFLOWS: WorkflowTemplate[] = [
           nodeType: 'gmail_send',
           status: 'idle',
           config: {
+            authMethod: 'sandbox',
+            sendMode: 'single',
             to: 'recruiting-team@acme.ai',
             cc: 'vp-engineering@acme.ai',
             subject: 'Candidate Evaluation Ready: {{node_file_trigger.parsedData.candidateName}} - {{node_file_trigger.parsedData.appliedRole}}',

@@ -4,7 +4,12 @@ import {
   resolveTemplateVariables,
   simulateOpenAiOutput,
   getNestedValue,
+  parseCsvToRecipients,
 } from '@/lib/workflow-engine';
+import {
+  dispatchSingleEmail,
+  dispatchBulkEmails,
+} from '@/lib/email-service';
 import {
   WorkflowExecutionLog,
   WorkflowExecutionResult,
@@ -46,6 +51,26 @@ export async function POST(req: NextRequest) {
 
       try {
         switch (nodeType) {
+          case 'email_list_file_upload': {
+            const rawContent = config.rawContent || '';
+            const parsed = parseCsvToRecipients(rawContent, {
+              email: config.emailColumn,
+              name: config.nameColumn,
+              company: config.companyColumn,
+            });
+
+            outputPayload = {
+              fileName: config.fileName || 'email_recipients.csv',
+              recipients: parsed.recipients,
+              totalCount: parsed.totalCount,
+              validCount: parsed.validCount,
+              invalidCount: parsed.invalidCount,
+              fileType: config.fileType || 'csv',
+              uploadedAt: new Date().toISOString(),
+            };
+            break;
+          }
+
           case 'input_form_trigger': {
             outputPayload = {
               submittedValues: config.submittedValues || {},
@@ -78,99 +103,290 @@ export async function POST(req: NextRequest) {
 
           case 'openai_llm':
           case 'openai_classifier': {
-            const systemPrompt = resolveTemplateVariables(config.systemPrompt || 'You are an AI assistant.', context);
-            const userPrompt = resolveTemplateVariables(config.userPrompt || '', context);
+            // Determine effective API Key and Base URL
+            const effectiveApiKey =
+              (config.apiKeySource === 'custom' && config.customApiKey)
+                ? config.customApiKey
+                : apiKeys.openaiApiKey || process.env.OPENAI_API_KEY;
+            const baseUrl = config.customBaseUrl || 'https://api.openai.com/v1';
+
             const model = config.model || 'gpt-4o-mini';
-            const apiKey = apiKeys.openaiApiKey || process.env.OPENAI_API_KEY;
+            const executionMode = config.executionMode || 'single';
 
-            if (apiKey && !config.mockFallback) {
-              try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${apiKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: model,
-                    messages: [
-                      { role: 'system', content: systemPrompt },
-                      { role: 'user', content: userPrompt },
-                    ],
-                    temperature: config.temperature ?? 0.7,
-                    max_tokens: config.maxTokens ?? 500,
-                  }),
-                });
+            // Check if batch execution mode over upstream list
+            if (executionMode === 'batch') {
+              // Locate target items list
+              let itemsToProcess: any[] = [];
+              if (config.batchSourceField) {
+                const resolved = getNestedValue(context, config.batchSourceField);
+                if (Array.isArray(resolved)) itemsToProcess = resolved;
+              }
 
-                if (!response.ok) {
-                  const errJson = await response.json().catch(() => ({}));
-                  throw new Error(errJson.error?.message || `OpenAI API returned status ${response.status}`);
+              // If not found, look for any upstream node with `recipients`
+              if (itemsToProcess.length === 0) {
+                for (const val of Object.values(context)) {
+                  if (val && Array.isArray(val.recipients)) {
+                    itemsToProcess = val.recipients;
+                    break;
+                  }
+                }
+              }
+
+              // Fallback to sample items if none connected
+              if (itemsToProcess.length === 0) {
+                itemsToProcess = [
+                  { email: 'alex@startup.io', name: 'Alex', company: 'Startup.io' },
+                  { email: 'sarah@enterprise.com', name: 'Sarah', company: 'Enterprise Corp' },
+                ];
+              }
+
+              const batchResults: any[] = [];
+              let totalBatchTokens = 0;
+
+              for (const item of itemsToProcess) {
+                const itemContext = { ...context, item, ...item };
+                const userPrompt = resolveTemplateVariables(config.userPrompt || '', itemContext);
+                const systemPrompt = resolveTemplateVariables(config.systemPrompt || 'You are an AI assistant.', itemContext);
+
+                if (effectiveApiKey && !config.mockFallback) {
+                  try {
+                    const response = await fetch(`${baseUrl}/chat/completions`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${effectiveApiKey}`,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: 'system', content: systemPrompt },
+                          { role: 'user', content: userPrompt },
+                        ],
+                        temperature: config.temperature ?? 0.7,
+                        max_tokens: config.maxTokens ?? 400,
+                      }),
+                    });
+
+                    if (response.ok) {
+                      const data = await response.json();
+                      const choice = data.choices?.[0]?.message?.content || '';
+                      totalBatchTokens += data.usage?.total_tokens || 100;
+                      batchResults.push({
+                        ...item,
+                        personalizedText: choice,
+                        output: choice,
+                        tokens: data.usage?.total_tokens,
+                      });
+                      continue;
+                    }
+                  } catch (e) {
+                    // Fall back to simulation
+                  }
                 }
 
-                const data = await response.json();
-                const choice = data.choices?.[0]?.message?.content || '';
-                tokensUsed = data.usage?.total_tokens || 150;
+                // High fidelity sandbox generator per item
+                const simOutput = simulateOpenAiOutput(userPrompt, systemPrompt, model, itemContext);
+                const estTokens = Math.floor(userPrompt.length / 4) + Math.floor(simOutput.length / 4);
+                totalBatchTokens += estTokens;
+                batchResults.push({
+                  ...item,
+                  personalizedText: simOutput,
+                  output: simOutput,
+                  tokens: estTokens,
+                  simulated: true,
+                });
+              }
 
-                outputPayload = {
-                  output: choice,
-                  model: data.model,
-                  promptTokens: data.usage?.prompt_tokens,
-                  completionTokens: data.usage?.completion_tokens,
-                  totalTokens: tokensUsed,
-                  finishReason: data.choices?.[0]?.finish_reason,
-                };
-              } catch (aiErr: any) {
-                // If real key fails, fall back smoothly with notice
+              tokensUsed = totalBatchTokens;
+              outputPayload = {
+                mode: 'batch',
+                totalProcessed: batchResults.length,
+                items: batchResults,
+                model,
+                tokensUsed: totalBatchTokens,
+                previewFirstItem: batchResults[0]?.personalizedText?.slice(0, 120),
+              };
+            } else {
+              // Standard Single Execution
+              const systemPrompt = resolveTemplateVariables(config.systemPrompt || 'You are an AI assistant.', context);
+              const userPrompt = resolveTemplateVariables(config.userPrompt || '', context);
+
+              if (effectiveApiKey && !config.mockFallback) {
+                try {
+                  const response = await fetch(`${baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${effectiveApiKey}`,
+                    },
+                    body: JSON.stringify({
+                      model: model,
+                      messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                      ],
+                      temperature: config.temperature ?? 0.7,
+                      max_tokens: config.maxTokens ?? 500,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const errJson = await response.json().catch(() => ({}));
+                    throw new Error(errJson.error?.message || `OpenAI API error ${response.status}`);
+                  }
+
+                  const data = await response.json();
+                  const choice = data.choices?.[0]?.message?.content || '';
+                  tokensUsed = data.usage?.total_tokens || 150;
+
+                  outputPayload = {
+                    output: choice,
+                    model: data.model,
+                    promptTokens: data.usage?.prompt_tokens,
+                    completionTokens: data.usage?.completion_tokens,
+                    totalTokens: tokensUsed,
+                    apiKeyUsed: config.apiKeySource === 'custom' ? 'node_custom' : 'workspace_global',
+                  };
+                } catch (aiErr: any) {
+                  const simOutput = simulateOpenAiOutput(userPrompt, systemPrompt, model, context);
+                  outputPayload = {
+                    output: simOutput,
+                    model: `${model} (Sandbox Fallback: ${aiErr.message})`,
+                    totalTokens: 185,
+                    simulated: true,
+                  };
+                }
+              } else {
+                // Realistic Simulation
                 const simOutput = simulateOpenAiOutput(userPrompt, systemPrompt, model, context);
+                tokensUsed = Math.floor(userPrompt.length / 4) + Math.floor(simOutput.length / 4);
                 outputPayload = {
                   output: simOutput,
-                  model: `${model} (fallback simulation: ${aiErr.message})`,
-                  totalTokens: 185,
+                  model: `${model} (Sandbox Engine)`,
+                  prompt: userPrompt,
+                  totalTokens: tokensUsed,
                   simulated: true,
                 };
               }
-            } else {
-              // Intelligent Realistic Simulation
-              const simOutput = simulateOpenAiOutput(userPrompt, systemPrompt, model, context);
-              tokensUsed = Math.floor(userPrompt.length / 4) + Math.floor(simOutput.length / 4);
-              outputPayload = {
-                output: simOutput,
-                model: `${model} (Sandbox Engine)`,
-                prompt: userPrompt,
-                totalTokens: tokensUsed,
-                simulated: true,
-              };
             }
             break;
           }
 
           case 'gmail_send': {
-            const resolvedTo = resolveTemplateVariables(config.to || '', context);
-            const resolvedCc = resolveTemplateVariables(config.cc || '', context);
-            const resolvedSubject = resolveTemplateVariables(config.subject || 'Automated Workflow Alert', context);
-            const resolvedBody = resolveTemplateVariables(config.body || '', context);
+            // Determine credentials
+            const authMethod = config.authMethod || (config.customAppPassword ? 'app_password' : 'global');
+            const userEmail = config.customUserEmail || apiKeys.userEmail;
+            const appPassword = config.customAppPassword || apiKeys.appPassword;
+            const oauthToken = config.customOAuthToken || apiKeys.gmailToken;
 
-            // In production or test environment, simulate or send RFC 2822 email
-            const messageId = `<msg-${Date.now()}.${Math.random().toString(36).substring(2, 7)}@gmail.com>`;
-            outputPayload = {
-              messageId,
-              threadId: `th_${Math.random().toString(36).substring(2, 9)}`,
-              status: config.sendAsDraft ? 'draft_created' : 'sent',
-              to: resolvedTo,
-              cc: resolvedCc || undefined,
-              subject: resolvedSubject,
-              bodySnippet: resolvedBody.slice(0, 160) + (resolvedBody.length > 160 ? '...' : ''),
-              fullBody: resolvedBody,
-              sentAt: new Date().toISOString(),
-              previewUrl: `https://mail.google.com/mail/u/0/#inbox/${messageId}`,
-            };
+            const sendMode = config.sendMode || 'single';
+
+            if (sendMode === 'bulk') {
+              // Locate recipient list (either from previous AI batch output or file upload)
+              let recipientsToEmail: any[] = [];
+
+              if (config.bulkRecipientSource) {
+                const resolved = getNestedValue(context, config.bulkRecipientSource);
+                if (Array.isArray(resolved)) recipientsToEmail = resolved;
+              }
+
+              if (recipientsToEmail.length === 0) {
+                // Auto-detect from context
+                for (const val of Object.values(context)) {
+                  if (val && Array.isArray(val.items)) {
+                    recipientsToEmail = val.items;
+                    break;
+                  }
+                  if (val && Array.isArray(val.recipients)) {
+                    recipientsToEmail = val.recipients;
+                    break;
+                  }
+                }
+              }
+
+              if (recipientsToEmail.length === 0) {
+                recipientsToEmail = [
+                  { email: 'alex@example.com', name: 'Alex' },
+                  { email: 'jordan@example.com', name: 'Jordan' },
+                ];
+              }
+
+              // Format personalized subject and body for each recipient
+              const preparedRecipients = recipientsToEmail.map((item) => {
+                const itemCtx = { ...context, item, ...item };
+                const personalizedSubj = resolveTemplateVariables(config.subject || 'Automated Outreach', itemCtx);
+                let personalizedBody = resolveTemplateVariables(config.body || '', itemCtx);
+                if (item.personalizedText || item.output) {
+                  personalizedBody = personalizedBody.replace(/\{\{\s*personalizedText\s*\}\}/g, item.personalizedText || item.output);
+                }
+                return {
+                  ...item,
+                  personalizedSubject: personalizedSubj,
+                  personalizedBody,
+                };
+              });
+
+              const bulkDispatch = await dispatchBulkEmails({
+                authMethod,
+                userEmail,
+                appPassword,
+                oauthToken,
+                recipients: preparedRecipients,
+                defaultSubject: resolveTemplateVariables(config.subject || 'Automated Outreach', context),
+                defaultBody: resolveTemplateVariables(config.body || '', context),
+                isHtml: config.isHtml,
+                delayMs: config.rateLimitDelayMs || 150,
+              });
+
+              outputPayload = {
+                mode: 'bulk',
+                totalAttempted: bulkDispatch.totalAttempted,
+                totalSent: bulkDispatch.totalSent,
+                totalFailed: bulkDispatch.totalFailed,
+                results: bulkDispatch.results,
+                durationMs: bulkDispatch.durationMs,
+                sentAt: bulkDispatch.completedAt,
+              };
+            } else {
+              // Single email mode
+              const resolvedTo = resolveTemplateVariables(config.to || '', context);
+              const resolvedCc = resolveTemplateVariables(config.cc || '', context);
+              const resolvedSubject = resolveTemplateVariables(config.subject || 'Automated Workflow Alert', context);
+              const resolvedBody = resolveTemplateVariables(config.body || '', context);
+
+              const dispatchRes = await dispatchSingleEmail({
+                authMethod,
+                userEmail,
+                appPassword,
+                oauthToken,
+                to: resolvedTo,
+                cc: resolvedCc,
+                subject: resolvedSubject,
+                body: resolvedBody,
+                isHtml: config.isHtml,
+              });
+
+              outputPayload = {
+                mode: 'single',
+                messageId: dispatchRes.messageId,
+                threadId: dispatchRes.threadId,
+                status: dispatchRes.success ? 'sent' : 'failed',
+                to: dispatchRes.to,
+                subject: dispatchRes.subject,
+                bodySnippet: resolvedBody.slice(0, 160) + (resolvedBody.length > 160 ? '...' : ''),
+                fullBody: resolvedBody,
+                sentAt: dispatchRes.sentAt,
+                previewUrl: dispatchRes.previewUrl,
+                dispatchMode: dispatchRes.mode,
+                error: dispatchRes.error,
+              };
+            }
             break;
           }
 
           case 'code_transform': {
             const rawCode = config.code || 'return input;';
             try {
-              // Safe evaluation using Function
               const transformFn = new Function('input', 'context', `
                 try {
                   ${rawCode.includes('return') ? rawCode : `return (${rawCode})`}
@@ -224,10 +440,9 @@ export async function POST(req: NextRequest) {
 
       const nodeDuration = Date.now() - nodeStart;
 
-      // Register output into execution context so downstream nodes can reference it
+      // Register output into context
       context[nodeId] = outputPayload;
       if (nodeData.label) {
-        // Also register under sanitized label name (e.g. "Customer_Support_Form")
         const safeLabel = nodeData.label.replace(/[^a-zA-Z0-9_]/g, '_');
         context[safeLabel] = outputPayload;
       }

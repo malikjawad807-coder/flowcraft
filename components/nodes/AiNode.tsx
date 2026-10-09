@@ -10,18 +10,22 @@ import {
   Coins,
   ArrowRight,
   ArrowLeft,
+  Key,
+  Layers,
 } from 'lucide-react';
 import { WorkflowNodeData } from '@/types/workflow';
 
 export const AiNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as unknown as WorkflowNodeData;
-  const { nodeType, label, status, executionDuration, lastRunOutput, config } = nodeData;
+  const { label, status, executionDuration, lastRunOutput, config } = nodeData;
 
   const isRunning = status === 'running';
   const isSuccess = status === 'success';
   const isError = status === 'error';
 
   const model = config?.model || 'gpt-4o-mini';
+  const isBatch = config?.executionMode === 'batch';
+  const hasCustomKey = config?.apiKeySource === 'custom' && Boolean(config?.customApiKey);
   const promptPreview = config?.userPrompt || 'Enter prompt template...';
 
   return (
@@ -61,7 +65,7 @@ export const AiNode = memo(({ id, data, selected }: NodeProps) => {
               </span>
             </div>
             <h3 className="text-xs font-semibold text-slate-100 truncate max-w-[170px]" title={label}>
-              {label || 'AI Completion'}
+              {label || 'AI Processing'}
             </h3>
           </div>
         </div>
@@ -96,6 +100,32 @@ export const AiNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Node Body Details */}
       <div className="p-3 text-xs space-y-2.5">
+        {/* Mode & Credentials Badges */}
+        <div className="flex items-center justify-between text-[10px] font-mono">
+          <span
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${
+              isBatch
+                ? 'text-amber-400 bg-amber-950/60 border-amber-800/50'
+                : 'text-purple-400 bg-purple-950/60 border-purple-800/50'
+            }`}
+          >
+            <Layers className="w-3 h-3" />
+            {isBatch ? 'Batch / Bulk Mode' : 'Single Prompt'}
+          </span>
+
+          <span
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${
+              hasCustomKey
+                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/50'
+                : 'text-slate-400 bg-slate-900 border-slate-800'
+            }`}
+            title={hasCustomKey ? 'Using node-specific personal API Key' : 'Using workspace global key'}
+          >
+            <Key className="w-3 h-3" />
+            {hasCustomKey ? 'Custom Key' : 'Global Key'}
+          </span>
+        </div>
+
         <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800/70 space-y-1.5">
           <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
             <span className="text-purple-400 flex items-center gap-1">
@@ -114,15 +144,17 @@ export const AiNode = memo(({ id, data, selected }: NodeProps) => {
             <div className="flex items-center justify-between text-[10px] text-purple-300 font-mono">
               <span className="flex items-center gap-1">
                 <Coins className="w-3 h-3 text-amber-400" />
-                {lastRunOutput.totalTokens || 180} tokens
+                {lastRunOutput.tokensUsed || lastRunOutput.totalTokens || 180} tokens
               </span>
               <span className="text-emerald-400 font-mono text-[9px] uppercase tracking-wide">
-                Completed
+                {isBatch ? `${lastRunOutput.totalProcessed || 0} items generated` : 'Completed'}
               </span>
             </div>
             <div className="text-slate-300 font-sans line-clamp-2 italic text-[11px]">
               &ldquo;
-              {typeof lastRunOutput.output === 'string'
+              {isBatch
+                ? (lastRunOutput.previewFirstItem || 'Batch items synthesized successfully')
+                : typeof lastRunOutput.output === 'string'
                 ? lastRunOutput.output.slice(0, 100)
                 : JSON.stringify(lastRunOutput.output).slice(0, 100)}
               ...&rdquo;

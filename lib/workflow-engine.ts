@@ -1,4 +1,5 @@
 import {
+  RecipientRecord,
   WorkflowExecutionLog,
   WorkflowExecutionResult,
   WorkflowNodeData,
@@ -16,7 +17,121 @@ export function getNestedValue(obj: any, path: string): any {
   return current;
 }
 
-// Resolve template string like "Hello {{input_form.name}}, status is {{openai_llm.status}}"
+// Check email validity
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+// Parse CSV content or line-separated text into structured RecipientRecords
+export function parseCsvToRecipients(
+  rawText: string,
+  columnMap: { email?: string; name?: string; company?: string; role?: string } = {}
+): {
+  recipients: RecipientRecord[];
+  totalCount: number;
+  validCount: number;
+  invalidCount: number;
+} {
+  if (!rawText || typeof rawText !== 'string') {
+    return { recipients: [], totalCount: 0, validCount: 0, invalidCount: 0 };
+  }
+
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    return { recipients: [], totalCount: 0, validCount: 0, invalidCount: 0 };
+  }
+
+  // 1. Detect if line 0 is a header row
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader =
+    firstLine.includes('email') ||
+    firstLine.includes('name') ||
+    firstLine.includes('company') ||
+    firstLine.includes('@') === false;
+
+  const headerCols = hasHeader
+    ? lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, '').toLowerCase())
+    : [];
+
+  const dataRows = hasHeader ? lines.slice(1) : lines;
+
+  // Identify column indices
+  let emailIdx = -1;
+  let nameIdx = -1;
+  let companyIdx = -1;
+  let roleIdx = -1;
+
+  if (hasHeader) {
+    headerCols.forEach((col, idx) => {
+      if (col === (columnMap.email || 'email') || col.includes('email') || col.includes('mail')) {
+        emailIdx = idx;
+      } else if (col === (columnMap.name || 'name') || col.includes('name') || col.includes('contact')) {
+        nameIdx = idx;
+      } else if (col === (columnMap.company || 'company') || col.includes('company') || col.includes('org')) {
+        companyIdx = idx;
+      } else if (col === (columnMap.role || 'role') || col.includes('role') || col.includes('title')) {
+        roleIdx = idx;
+      }
+    });
+  }
+
+  const recipients: RecipientRecord[] = [];
+  let validCount = 0;
+  let invalidCount = 0;
+
+  for (const row of dataRows) {
+    const cols = row.split(',').map((c) => c.trim().replace(/^["']|["']$/g, ''));
+    let email = '';
+    let name = '';
+    let company = '';
+    let role = '';
+
+    if (hasHeader && emailIdx !== -1) {
+      email = cols[emailIdx] || '';
+      name = nameIdx !== -1 ? cols[nameIdx] || '' : '';
+      company = companyIdx !== -1 ? cols[companyIdx] || '' : '';
+      role = roleIdx !== -1 ? cols[roleIdx] || '' : '';
+    } else {
+      // Find the first column containing an '@'
+      for (let i = 0; i < cols.length; i++) {
+        if (cols[i].includes('@')) {
+          email = cols[i];
+          name = cols[i === 0 ? 1 : 0] || '';
+          company = cols[2] || '';
+          break;
+        }
+      }
+      if (!email && cols[0]) {
+        email = cols[0];
+      }
+    }
+
+    const isValid = isValidEmail(email);
+    if (isValid) {
+      validCount++;
+    } else {
+      invalidCount++;
+    }
+
+    recipients.push({
+      email,
+      name: name || undefined,
+      company: company || undefined,
+      role: role || undefined,
+      isValid,
+    });
+  }
+
+  return {
+    recipients,
+    totalCount: recipients.length,
+    validCount,
+    invalidCount,
+  };
+}
+
+// Resolve template string like "Hello {{item.name}}, status is {{openai_llm.status}}"
 export function resolveTemplateVariables(template: string, context: Record<string, any>): string {
   if (!template || typeof template !== 'string') return template || '';
   return template.replace(/\{\{\s*([a-zA-Z0-9_$.\[\]]+)\s*\}\}/g, (match, path) => {
@@ -99,7 +214,16 @@ export function simulateOpenAiOutput(
   inputData: any
 ): string {
   const pLower = prompt.toLowerCase();
-  
+
+  // If prompt is personalizing an email to a recipient
+  if (inputData?.item || inputData?.name || inputData?.company || pLower.includes('personalized')) {
+    const name = inputData?.item?.name || inputData?.name || 'Partner';
+    const company = inputData?.item?.company || inputData?.company || 'your organization';
+    const role = inputData?.item?.role || 'Leader';
+
+    return `Hi ${name},\n\nI was researching innovative workflows at ${company} and was impressed by your team's initiatives in automation.\n\nAt FlowCraft, we help forward-thinking teams connect their data pipelines, LLM reasoning, and Gmail dispatches into seamless visual automations.\n\nWould you be open to a 5-minute chat next Tuesday to explore how this could accelerate workflows at ${company}?\n\nBest regards,\nJordan Lee\nSolutions Architect, FlowCraft`;
+  }
+
   if (pLower.includes('sentiment') || pLower.includes('classify') || pLower.includes('category')) {
     return JSON.stringify(
       {

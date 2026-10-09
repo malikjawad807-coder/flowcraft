@@ -11,13 +11,16 @@ import {
   Loader2,
   Settings2,
   ArrowRight,
+  Users,
+  MailCheck,
 } from 'lucide-react';
 import { WorkflowNodeData } from '@/types/workflow';
 
 export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as unknown as WorkflowNodeData;
-  const { nodeType, label, status, executionDuration, lastRunError, config } = nodeData;
+  const { nodeType, label, status, executionDuration, config } = nodeData;
 
+  const isEmailList = nodeType === 'email_list_file_upload';
   const isForm = nodeType === 'input_form_trigger';
   const isFile = nodeType === 'file_upload_trigger';
   const isWebhook = nodeType === 'webhook_trigger';
@@ -25,6 +28,9 @@ export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
   const isRunning = status === 'running';
   const isSuccess = status === 'success';
   const isError = status === 'error';
+
+  const totalRecipients = config?.recipients?.length || config?.totalCount || 0;
+  const validRecipients = config?.validCount || totalRecipients;
 
   return (
     <div
@@ -42,10 +48,11 @@ export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-slate-900 border-b border-slate-800/80 rounded-t-xl">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+            {isEmailList && <Users className="w-4 h-4" />}
             {isFile && <FileUp className="w-4 h-4" />}
             {isForm && <FormInput className="w-4 h-4" />}
             {isWebhook && <Webhook className="w-4 h-4" />}
-            {!isFile && !isForm && !isWebhook && <Zap className="w-4 h-4" />}
+            {!isEmailList && !isFile && !isForm && !isWebhook && <Zap className="w-4 h-4" />}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
@@ -54,7 +61,7 @@ export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
               </span>
               <span className="text-slate-600">•</span>
               <span className="text-[10px] text-slate-400 font-mono">
-                {isFile ? 'File Event' : isForm ? 'Form Event' : 'Webhook'}
+                {isEmailList ? 'Email CSV/File' : isFile ? 'File Event' : isForm ? 'Form Event' : 'Webhook'}
               </span>
             </div>
             <h3 className="text-xs font-semibold text-slate-100 truncate max-w-[170px]" title={label}>
@@ -93,6 +100,30 @@ export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Node Body Details */}
       <div className="p-3 text-xs space-y-2.5">
+        {isEmailList && (
+          <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800/70 space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-slate-300">
+              <span className="flex items-center gap-1.5 font-medium truncate max-w-[150px]">
+                <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                {config?.fileName || 'contacts.csv'}
+              </span>
+              <span className="text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">
+                CSV / TXT
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-slate-900 text-[10px] font-mono">
+              <span className="text-slate-400 flex items-center gap-1">
+                <Users className="w-3 h-3 text-emerald-500" />
+                {totalRecipients} total contacts
+              </span>
+              <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
+                <MailCheck className="w-3 h-3" />
+                {validRecipients} valid
+              </span>
+            </div>
+          </div>
+        )}
+
         {isFile && (
           <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800/70 space-y-1.5">
             <div className="flex items-center justify-between text-[11px] text-slate-400">
@@ -157,7 +188,7 @@ export const TriggerNode = memo(({ id, data, selected }: NodeProps) => {
         </div>
       </div>
 
-      {/* React Flow Output Handle (Only Right for Triggers) */}
+      {/* React Flow Output Handle */}
       <Handle
         type="source"
         position={Position.Right}

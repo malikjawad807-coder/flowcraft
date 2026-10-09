@@ -1,69 +1,68 @@
-# FlowCraft Studio (n8n-Inspired Visual Workflow Builder)
+# FlowCraft Studio (Visual AI Workflow Automation Platform)
 
-A modern, intuitive visual automation canvas inspired by **n8n**, built with **Next.js App Router**, **TypeScript**, **Tailwind CSS**, and **React Flow** (`@xyflow/react`).
+A visual automation canvas inspired by **n8n**, built with **Next.js 14 App Router**, **TypeScript**, **Tailwind CSS**, and **React Flow** (`@xyflow/react`).
+
+🔗 **Repository**: [https://github.com/malikjawad807-coder/flowcraft.git](https://github.com/malikjawad807-coder/flowcraft.git)
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-### 1. Interactive Visual Canvas (React Flow)
-- **Node Drag-and-Drop & Click-to-Add**: Add triggers, AI, action, and logic nodes directly from the sidebar.
-- **Custom Visual Nodes**: Custom designed nodes with category accents, status badges, real-time pulse animations, and input/output handles.
-- **Interactive Connections & Animated Edges**: Glowing bezier curves with flowing particles indicating active executions.
-- **Minimap, Background Dots, and Controls**: Zoom in/out, fit to screen, and canvas panning.
+### 1. Secure API Key & Credential Management
+- **Personal OpenAI API Keys**:
+  - Connect your personal OpenAI API Key (`sk-...`) either globally in **Workspace Settings** or directly within individual **OpenAI Processing Nodes**.
+  - Includes password visibility toggle (`Show / Hide`), custom Base URL support (compatible with OpenAI, OpenRouter, Groq, Azure, or local Ollama), and sandbox fallback.
+- **Personal Gmail Authentication**:
+  - **Google App Password (Recommended)**: Connect your personal Gmail address and 16-character App Password (`xxxx xxxx xxxx xxxx`) for live, authenticated email delivery powered by `nodemailer`.
+  - **OAuth Bearer Token**: Alternative Google Cloud OAuth token configuration.
+  - **Sandbox Simulation**: Safe preview mode with real delivery headers, message IDs, and recipient tracking.
 
-### 2. Triggers Supported
-- **Input Form Trigger (`input_form_trigger`)**:
-  - Configurable dynamic fields (text, email, textarea, select, number).
-  - Built-in live form tester in the configuration drawer to submit test triggers directly.
-- **File Upload Trigger (`file_upload_trigger`)**:
-  - Ingest JSON, CSV, PDF, or text documents.
-  - Built-in file preview & structured JSON parser.
-- **Webhook Trigger (`webhook_trigger`)**:
-  - HTTP POST simulator with payload editor.
+### 2. Email List File Upload Trigger (`email_list_file_upload`)
+- Upload CSV, TXT, or JSON contact files containing emails, names, companies, and roles.
+- **Client-Side Live Parsing & Validation**: Real-time syntax validation (`valid` vs `invalid` chips), column mapping (`Email`, `Name`, `Company`), and a live preview table of parsed contacts.
+- Built-in **"Load 25 Sample Leads"** button for immediate testing.
 
-### 3. Action & Processing Nodes
-- **OpenAI AI Reasoning (`openai_llm` & `openai_classifier`)**:
-  - Model selection: `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo`.
-  - System prompt & user prompt templating with variable interpolation (e.g., `{{node_form.submittedValues.customerName}}`).
-  - Supports live OpenAI API key or built-in intelligent sandbox simulation with token usage tracking.
-  - Isolated "Test This Step" runner directly inside the node drawer.
-- **Gmail API Send Node (`gmail_send`)**:
-  - Template resolution for `To`, `CC`, `Subject`, and `Body` (e.g., embedding `{{node_openai.output}}`).
-  - RFC 2822 email generation, message ID, and delivery receipt tracking.
-  - Isolated "Test This Step" email tester.
-- **Code Transform (`code_transform`)**:
-  - Custom JavaScript mapper to reshape JSON between steps.
-- **Condition Router (`condition_filter`)**:
-  - If/Else branching based on upstream variables (`equals`, `contains`, `greater_than`).
+### 3. OpenAI AI Processing Nodes (`openai_llm` & `openai_classifier`)
+- **Single Execution Mode**: Run prompt templates for individual upstream events.
+- **Batch / Bulk Execution Mode**: Iterates over upstream contact lists (`{{node_csv.recipients}}`) and generates bespoke personalized outreach messages for every recipient (`{{item.name}}`, `{{item.company}}`).
+- Real-time token tracking and step testing.
 
-### 4. Workflow Graph Execution Engine
-- **Topological Sorting**: Resolves node dependency graph (DAG) automatically.
-- **Variable Context Propagation**: Cumulative context allows any downstream node to reference any upstream node's output.
-- **Live Visual State Transitions**: Nodes cycle through `idle` ➔ `running` ➔ `success` / `error`.
-- **Celebration Confetti**: Triggered upon successful end-to-end execution!
-- **Bottom Execution Drawer & Log Viewer**:
-  - Per-step duration, status, input and output JSON inspector, token counter, and copy-to-clipboard functionality.
+### 4. Gmail API Action Nodes (`gmail_send`)
+- **Single Email Mode**: 1-to-1 email dispatch with template interpolation.
+- **Bulk Delivery Mode**: Dispatches personalized emails to the entire upstream contact list with rate-limit pacing (e.g., 200ms delay per email) to avoid throttling.
+- Generates detailed delivery logs per contact: `totalAttempted`, `totalSent`, `totalFailed`, `messageId`, `sentAt`, and preview links.
 
-### 5. Templates & Persistence
-- **Starter Templates**:
-  1. *Customer Support AI Classifier & Gmail Responder* (Form ➔ OpenAI ➔ Gmail)
-  2. *Document & Resume AI Screening with Gmail Alert* (File Upload ➔ OpenAI ➔ Gmail)
-- **Export / Import JSON**: Export and import complete workflow blueprints.
-- **API Credentials Modal**: Store your OpenAI key securely in session memory.
+### 5. Interactive Canvas & Execution Engine
+- **React Flow v12**: Drag-and-drop, connection handles, minimap, controls, and background grid.
+- **Animated Edges**: Glowing bezier paths with moving data particles during execution.
+- **Topological DAG Runner**: Automatically determines graph order and propagates cumulative variables (`{{nodeId.field}}`).
+- **Live State Transitions & Celebration Confetti**: Nodes transition (`idle` ➔ `running` ➔ `success` / `error`), with confetti upon workflow completion.
+- **Execution Drawer**: Inspect step timings, input/output JSON payloads, and token consumption.
+
+---
+
+## 📋 Starter Blueprints Included
+
+1. **Bulk Personalized Cold Outreach**:
+   - `Email List CSV Upload (10 Contacts)` ➔ `OpenAI Bulk Personalizer` ➔ `Gmail Bulk Sender`
+2. **Customer Support AI Classifier & Gmail Auto-Responder**:
+   - `Customer Support Form` ➔ `OpenAI Ticket Analysis & Draft` ➔ `Gmail Auto-Response`
+3. **Document & Resume AI Screening with Gmail Alert**:
+   - `Resume Document Upload` ➔ `OpenAI Candidate Evaluation` ➔ `Gmail Candidate Report`
 
 ---
 
 ## 🛠️ Running Locally
 
-The development server is running at:
 ```bash
-http://localhost:3000
-```
+# Install dependencies
+npm install
 
-To run manually:
-```bash
+# Start development server
 npm run dev
-# or
+
+# Or build for production
 npm run build && npm run start
 ```
+
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.

@@ -9,17 +9,22 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
+  Key,
+  Users,
 } from 'lucide-react';
 import { WorkflowNodeData } from '@/types/workflow';
 
 export const GmailNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as unknown as WorkflowNodeData;
-  const { nodeType, label, status, executionDuration, lastRunOutput, config } = nodeData;
+  const { label, status, executionDuration, lastRunOutput, config } = nodeData;
 
   const isRunning = status === 'running';
   const isSuccess = status === 'success';
   const isError = status === 'error';
 
+  const isBulk = config?.sendMode === 'bulk';
+  const hasAppPassword = Boolean(config?.customAppPassword);
+  const authMethod = config?.authMethod || (hasAppPassword ? 'app_password' : 'global');
   const recipient = config?.to || 'recipient@example.com';
   const subject = config?.subject || 'Workflow automated message';
   const isDraft = config?.sendAsDraft;
@@ -96,10 +101,36 @@ export const GmailNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Node Body Details */}
       <div className="p-3 text-xs space-y-2.5">
+        {/* Mode & Auth Badges */}
+        <div className="flex items-center justify-between text-[10px] font-mono">
+          <span
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${
+              isBulk
+                ? 'text-amber-400 bg-amber-950/60 border-amber-800/50'
+                : 'text-red-400 bg-red-950/60 border-red-800/50'
+            }`}
+          >
+            {isBulk ? <Users className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+            {isBulk ? 'Bulk List Send' : 'Single Email'}
+          </span>
+
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-slate-300 bg-slate-900 border-slate-800"
+            title={authMethod === 'app_password' ? 'Authenticating via personal Gmail App Password' : 'Using OAuth or Global Credentials'}
+          >
+            <Key className="w-3 h-3 text-[#ff6d5a]" />
+            {authMethod === 'app_password' ? 'App Password' : authMethod === 'oauth_token' ? 'OAuth Token' : 'Default Auth'}
+          </span>
+        </div>
+
         <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800/70 space-y-1.5">
           <div className="flex items-center gap-1.5 text-[11px] text-slate-300 truncate">
-            <span className="text-red-400 font-mono text-[10px] uppercase font-semibold">To:</span>
-            <span className="font-mono text-slate-300 truncate">{recipient}</span>
+            <span className="text-red-400 font-mono text-[10px] uppercase font-semibold">
+              {isBulk ? 'Recipients:' : 'To:'}
+            </span>
+            <span className="font-mono text-slate-300 truncate">
+              {isBulk ? '{{upstream.recipients}}' : recipient}
+            </span>
           </div>
           <div className="text-[11px] text-slate-400 truncate">
             <span className="text-slate-500">Subject: </span>
@@ -113,20 +144,22 @@ export const GmailNode = memo(({ id, data, selected }: NodeProps) => {
             <div className="flex items-center justify-between text-[10px] text-emerald-300 font-mono">
               <span className="flex items-center gap-1">
                 <FileCheck className="w-3 h-3 text-emerald-400" />
-                Delivered
+                {isBulk ? `${lastRunOutput.totalSent || 0} Emails Sent` : 'Delivered'}
               </span>
               <span className="text-slate-400 truncate max-w-[120px]">
-                {lastRunOutput.messageId || 'msg-ok'}
+                {lastRunOutput.messageId || (lastRunOutput.totalSent ? 'Batch Complete' : 'Sent')}
               </span>
             </div>
             <div className="text-slate-300 font-sans line-clamp-1 text-[11px]">
-              Sent to: {lastRunOutput.to}
+              {isBulk
+                ? `Bulk delivery finished: ${lastRunOutput.totalSent} succeeded, ${lastRunOutput.totalFailed || 0} failed.`
+                : `Sent to: ${lastRunOutput.to}`}
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between text-[10px] text-slate-500">
             <span className="flex items-center gap-1 font-mono">
-              <Send className="w-3 h-3 text-slate-600" /> Gmail SMTP / OAuth
+              <Send className="w-3 h-3 text-slate-600" /> {isBulk ? 'Sequential Rate Pacing' : 'Gmail SMTP / OAuth'}
             </span>
             <span className="text-slate-500 font-mono">HTML & Plain Text</span>
           </div>
@@ -138,7 +171,7 @@ export const GmailNode = memo(({ id, data, selected }: NodeProps) => {
             <ArrowLeft className="w-2.5 h-2.5" /> Upstream Data
           </span>
           <span className="text-red-400/90 font-mono flex items-center gap-0.5">
-            Receipt <ArrowRight className="w-2.5 h-2.5" />
+            Receipts <ArrowRight className="w-2.5 h-2.5" />
           </span>
         </div>
       </div>

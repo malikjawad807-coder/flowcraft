@@ -41,7 +41,12 @@ export default function WorkflowBuilderPage() {
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const [apiKeys, setApiKeys] = useState<{ openaiApiKey?: string; gmailToken?: string }>({});
+  const [apiKeys, setApiKeys] = useState<{
+    openaiApiKey?: string;
+    userEmail?: string;
+    appPassword?: string;
+    gmailToken?: string;
+  }>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +109,26 @@ export default function WorkflowBuilderPage() {
       let config: Record<string, any> = {};
 
       switch (type) {
+        case 'email_list_file_upload':
+          category = 'trigger';
+          label = 'Email List CSV';
+          config = {
+            fileName: 'sample_leads.csv',
+            rawContent: 'email,name,company,role\nalex@techcorp.io,Alex,TechCorp,VP Engineering\nsarah@growthlab.com,Sarah,GrowthLab,Director\njordan@cloudpulse.ai,Jordan,CloudPulse,Head of AI',
+            emailColumn: 'email',
+            nameColumn: 'name',
+            companyColumn: 'company',
+            recipients: [
+              { email: 'alex@techcorp.io', name: 'Alex', company: 'TechCorp', role: 'VP Engineering', isValid: true },
+              { email: 'sarah@growthlab.com', name: 'Sarah', company: 'GrowthLab', role: 'Director', isValid: true },
+              { email: 'jordan@cloudpulse.ai', name: 'Jordan', company: 'CloudPulse', role: 'Head of AI', isValid: true },
+            ],
+            totalCount: 3,
+            validCount: 3,
+            invalidCount: 0,
+          };
+          break;
+
         case 'input_form_trigger':
           category = 'trigger';
           label = 'Input Form';
@@ -146,9 +171,11 @@ export default function WorkflowBuilderPage() {
           category = 'ai';
           label = 'OpenAI Reasoning';
           config = {
+            apiKeySource: 'global',
             model: 'gpt-4o-mini',
+            executionMode: 'single',
             systemPrompt: 'You are an intelligent workflow automation AI.',
-            userPrompt: 'Summarize and extract key action items from upstream input.',
+            userPrompt: 'Draft a personalized outreach pitch to {{item.name}} at {{item.company}}.',
             temperature: 0.7,
             maxTokens: 500,
             mockFallback: true,
@@ -159,7 +186,9 @@ export default function WorkflowBuilderPage() {
           category = 'ai';
           label = 'AI Sentiment Router';
           config = {
+            apiKeySource: 'global',
             model: 'gpt-4o-mini',
+            executionMode: 'single',
             systemPrompt: 'You are an AI sentiment and priority classifier.',
             userPrompt: 'Determine priority (High / Medium / Low) and tone of the input message.',
             temperature: 0.3,
@@ -172,6 +201,8 @@ export default function WorkflowBuilderPage() {
           category = 'action';
           label = 'Gmail Dispatch';
           config = {
+            authMethod: 'sandbox',
+            sendMode: 'single',
             to: 'recipient@example.com',
             subject: 'Automated Notification',
             body: 'Hello,\n\nThis is an automated workflow confirmation message.',

@@ -52,6 +52,7 @@ function InnerWorkflowCanvas({
   const nodeTypes = useMemo(
     () => ({
       trigger: TriggerNode,
+      email_list_file_upload: TriggerNode,
       input_form_trigger: TriggerNode,
       file_upload_trigger: TriggerNode,
       webhook_trigger: TriggerNode,
