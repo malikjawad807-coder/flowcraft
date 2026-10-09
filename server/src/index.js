@@ -8,6 +8,8 @@ import { fileURLToPath } from 'url';
 
 import { initDatabase, db } from './db.js';
 import authRoutes from './routes/auth.js';
+import leadsRoutes from './routes/leads.js';
+import credentialsRoutes from './routes/credentials.js';
 import { authMiddleware } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,15 +78,9 @@ app.get('/api/workflows', authMiddleware, (req, res) => {
   res.json({ workflows });
 });
 
-app.get('/api/leads', authMiddleware, (req, res) => {
-  const leads = db.prepare('SELECT * FROM leads ORDER BY id DESC').all();
-  res.json({ leads, total: leads.length });
-});
-
-app.get('/api/credentials', authMiddleware, (req, res) => {
-  const credentials = db.prepare('SELECT id, name, host, port, secure, user, from_name, from_email, created_at FROM credentials ORDER BY id DESC').all();
-  res.json({ credentials });
-});
+// Leads & Credentials Routes (Step 2)
+app.use('/api/leads', leadsRoutes);
+app.use('/api/credentials', credentialsRoutes);
 
 app.get('/api/executions', authMiddleware, (req, res) => {
   const executions = db.prepare('SELECT * FROM executions ORDER BY started_at DESC LIMIT 50').all();
