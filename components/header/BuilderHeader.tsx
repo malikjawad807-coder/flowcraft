@@ -14,6 +14,7 @@ import {
   Mail,
   Bot,
   Users,
+  Home,
 } from 'lucide-react';
 import { AI_MODELS } from '@/components/ai-assistant/AiAssistantPanel';
 
@@ -30,6 +31,7 @@ interface BuilderHeaderProps {
   onExportWorkflow: () => void;
   onImportWorkflow: () => void;
   onClearWorkflow: () => void;
+  onOpenHero?: () => void;
   hasLogs: boolean;
   nodeCount: number;
   extractedEmailCount: number;
@@ -49,6 +51,7 @@ export function BuilderHeader({
   onExportWorkflow,
   onImportWorkflow,
   onClearWorkflow,
+  onOpenHero,
   hasLogs,
   nodeCount,
   extractedEmailCount,
@@ -61,20 +64,24 @@ export function BuilderHeader({
       {/* Left: Branding & Workflow Title */}
       <div className="flex items-center gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-2 pr-3 border-r border-slate-800/80">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#ff6d5a] to-rose-400 flex items-center justify-center text-white shadow-md shadow-[#ff6d5a]/20">
+        <button
+          onClick={onOpenHero}
+          className="flex items-center gap-2 pr-3 border-r border-slate-800/80 hover:opacity-85 transition-opacity text-left cursor-pointer group"
+          title="Return to Hero Page Showcase"
+        >
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#ff6d5a] to-rose-400 flex items-center justify-center text-white shadow-md shadow-[#ff6d5a]/20 group-hover:scale-105 transition-transform">
             <Layers className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold tracking-tight text-white">FlowCraft</span>
+              <span className="text-xs font-bold tracking-tight text-white group-hover:text-[#ff6d5a] transition-colors">FlowCraft</span>
               <span className="text-[9px] font-mono font-semibold bg-[#ff6d5a]/20 text-[#ff6d5a] border border-[#ff6d5a]/30 px-1 rounded">
                 n8n
               </span>
             </div>
             <p className="text-[9px] text-slate-500 font-mono leading-none">Visual Workflow Studio</p>
           </div>
-        </div>
+        </button>
 
         {/* Workflow Title */}
         <div className="flex items-center gap-2">
@@ -120,6 +127,18 @@ export function BuilderHeader({
             {currentModel.name.split(' ')[0]}
           </span>
         </button>
+
+        {/* Hero Showcase Button */}
+        {onOpenHero && (
+          <button
+            onClick={onOpenHero}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-300 bg-amber-950/60 hover:bg-amber-900/60 border border-amber-800/70 transition-all shadow-sm"
+            title="View Drone Video Hero Showcase"
+          >
+            <Home className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Hero Showcase</span>
+          </button>
+        )}
 
         {/* Templates Picker */}
         <button

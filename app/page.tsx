@@ -23,6 +23,7 @@ import { EmailComposerModal } from '@/components/email/EmailComposerModal';
 import { AiAssistantPanel, AI_MODELS } from '@/components/ai-assistant/AiAssistantPanel';
 import { ExtractedEmail } from '@/lib/email-extractor';
 import { SAMPLE_WORKFLOWS } from '@/lib/sample-workflows';
+import { HeroPage } from '@/components/hero/HeroPage';
 import {
   NodeType,
   WorkflowNodeData,
@@ -32,6 +33,9 @@ import {
 
 export default function WorkflowBuilderPage() {
   const initialWorkflow = SAMPLE_WORKFLOWS[0];
+
+  // Active view: 'hero' or 'builder'
+  const [activeView, setActiveView] = useState<'hero' | 'builder'>('hero');
 
   const [workflowName, setWorkflowName] = useState(initialWorkflow.name);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialWorkflow.nodes as Node[]);
@@ -558,64 +562,80 @@ export default function WorkflowBuilderPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0b0f17] select-none">
-      {/* Top Header */}
-      <BuilderHeader
-        workflowName={workflowName}
-        onRenameWorkflow={setWorkflowName}
-        isRunning={isRunning}
-        onRunWorkflow={handleRunWorkflow}
-        onOpenTemplates={() => setIsTemplatesOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onToggleLogs={() => setIsLogDrawerOpen(!isLogDrawerOpen)}
-        onOpenExtractor={() => setIsExtractorOpen(true)}
-        onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
-        onExportWorkflow={handleExportWorkflow}
-        onImportWorkflow={handleImportWorkflow}
-        onClearWorkflow={handleClearWorkflow}
-        hasLogs={executionResult !== null}
-        nodeCount={nodes.length}
-        extractedEmailCount={extractedEmails.length}
-        selectedAiModel={selectedAiModel}
-      />
-
-      {/* Main Workspace: Sidebar + Canvas */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Node Library Sidebar */}
-        <NodeLibrary onAddNode={handleAddNode} />
-
-        {/* React Flow Canvas */}
-        <main className="flex-1 h-full relative">
-          <WorkflowCanvas
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            onDropNode={handleDropNode}
-          />
-        </main>
-
-        {/* Node Configuration Drawer (Right) */}
-        <NodeConfigDrawer
-          node={selectedNode}
-          upstreamNodes={upstreamNodes}
-          isOpen={selectedNode !== null}
-          onClose={() => setSelectedNodeId(null)}
-          onUpdateNode={handleUpdateNode}
-          onDeleteNode={handleDeleteNode}
-          apiKeys={apiKeys}
+    <>
+      {activeView === 'hero' ? (
+        <HeroPage
+          onLaunchBuilder={() => setActiveView('builder')}
+          onOpenExtractor={() => setIsExtractorOpen(true)}
+          onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onLoadTemplate={(template) => {
+            handleSelectTemplate(template);
+            setActiveView('builder');
+          }}
         />
-      </div>
+      ) : (
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0b0f17] select-none">
+          {/* Top Header */}
+          <BuilderHeader
+            workflowName={workflowName}
+            onRenameWorkflow={setWorkflowName}
+            isRunning={isRunning}
+            onRunWorkflow={handleRunWorkflow}
+            onOpenTemplates={() => setIsTemplatesOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onToggleLogs={() => setIsLogDrawerOpen(!isLogDrawerOpen)}
+            onOpenExtractor={() => setIsExtractorOpen(true)}
+            onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
+            onExportWorkflow={handleExportWorkflow}
+            onImportWorkflow={handleImportWorkflow}
+            onClearWorkflow={handleClearWorkflow}
+            onOpenHero={() => setActiveView('hero')}
+            hasLogs={executionResult !== null}
+            nodeCount={nodes.length}
+            extractedEmailCount={extractedEmails.length}
+            selectedAiModel={selectedAiModel}
+          />
 
-      {/* Bottom Execution Trace Drawer */}
-      <ExecutionDrawer
-        result={executionResult}
-        isOpen={isLogDrawerOpen && executionResult !== null}
-        onClose={() => setIsLogDrawerOpen(false)}
-      />
+          {/* Main Workspace: Sidebar + Canvas */}
+          <div className="flex-1 flex overflow-hidden relative">
+            {/* Node Library Sidebar */}
+            <NodeLibrary onAddNode={handleAddNode} />
+
+            {/* React Flow Canvas */}
+            <main className="flex-1 h-full relative">
+              <WorkflowCanvas
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={onNodeClick}
+                onPaneClick={onPaneClick}
+                onDropNode={handleDropNode}
+              />
+            </main>
+
+            {/* Node Configuration Drawer (Right) */}
+            <NodeConfigDrawer
+              node={selectedNode}
+              upstreamNodes={upstreamNodes}
+              isOpen={selectedNode !== null}
+              onClose={() => setSelectedNodeId(null)}
+              onUpdateNode={handleUpdateNode}
+              onDeleteNode={handleDeleteNode}
+              apiKeys={apiKeys}
+            />
+          </div>
+
+          {/* Bottom Execution Trace Drawer */}
+          <ExecutionDrawer
+            result={executionResult}
+            isOpen={isLogDrawerOpen && executionResult !== null}
+            onClose={() => setIsLogDrawerOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Hidden File Input for Import */}
       <input
@@ -634,7 +654,10 @@ export default function WorkflowBuilderPage() {
         setExtractedEmails={setExtractedEmails}
         onBulkSend={handleBulkSendFromExtractor}
         onSingleSend={handleSingleSendFromExtractor}
-        onInjectIntoCanvas={handleInjectIntoCanvas}
+        onInjectIntoCanvas={(id) => {
+          handleInjectIntoCanvas(id);
+          setActiveView('builder');
+        }}
       />
 
       {/* Single & Bulk Email Delivery Composer Modal */}
@@ -654,17 +677,29 @@ export default function WorkflowBuilderPage() {
         onSelectModel={setSelectedAiModel}
         apiKeys={apiKeys}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onAddNodeToCanvas={handleAddNode}
-        onRunWorkflow={handleRunWorkflow}
+        onAddNodeToCanvas={(type) => {
+          handleAddNode(type);
+          setActiveView('builder');
+        }}
+        onRunWorkflow={() => {
+          setActiveView('builder');
+          handleRunWorkflow();
+        }}
         onClearWorkflow={handleClearWorkflow}
-        onLoadTemplate={handleLoadTemplateById}
+        onLoadTemplate={(id) => {
+          handleLoadTemplateById(id);
+          setActiveView('builder');
+        }}
       />
 
       {/* Templates Modal */}
       <TemplatesModal
         isOpen={isTemplatesOpen}
         onClose={() => setIsTemplatesOpen(false)}
-        onSelectTemplate={handleSelectTemplate}
+        onSelectTemplate={(template) => {
+          handleSelectTemplate(template);
+          setActiveView('builder');
+        }}
       />
 
       {/* Settings Modal */}
@@ -674,6 +709,6 @@ export default function WorkflowBuilderPage() {
         apiKeys={apiKeys}
         onSaveKeys={setApiKeys}
       />
-    </div>
+    </>
   );
 }
