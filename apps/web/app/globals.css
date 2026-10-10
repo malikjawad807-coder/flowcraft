@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '@xyflow/react/dist/style.css';
+
+:root {
+  --bg: #0A0A0B;
+  --surface: #121214;
+  --surface-2: #1A1A1D;
+  --border: #2A2A2F;
+  --text: #F4F4F5;
+  --muted: #A1A1AA;
+  --red: #E11D2E;
+  --red-hover: #FF3345;
+  --red-press: #B8101F;
+  --red-soft: rgba(225, 29, 46, 0.12);
+  --red-text: #FF4D5A;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+/* React Flow canvas dark styling with red accent */
+.react-flow {
+  background-color: var(--bg) !important;
+}
+
+.react-flow__background {
+  background-color: var(--bg) !important;
+}
+
+.react-flow__controls {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.react-flow__controls-button {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--muted) !important;
+  fill: var(--muted) !important;
+  transition: all 0.15s ease !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  fill: var(--text) !important;
+}
+
+.react-flow__minimap {
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(10, 10, 11, 0.8) !important;
+}
+
+.react-flow__minimap-node {
+  fill: var(--red) !important;
+}
+
+/* Custom Handles */
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--bg) !important;
+  background: var(--muted) !important;
+  transition: all 0.15s ease !important;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.3) !important;
+  background: var(--red) !important;
+  box-shadow: 0 0 8px var(--red) !important;
+}
+
+.react-flow__handle-left {
+  left: -5px !important;
+}
+
+.react-flow__handle-right {
+  right: -5px !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Focus outline */
+*:focus-visible {
+  outline: 2px solid var(--red) !important;
+  outline-offset: 1px;
+}

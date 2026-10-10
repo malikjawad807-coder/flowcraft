@@ -1,17 +1,16 @@
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.js
 
 # testing
-/coverage
+coverage/
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
+# next.js & builds
+.next/
+out/
+build/
+dist/
 
 # misc
 .DS_Store
@@ -33,6 +32,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# raw media in root
-/*.mp4
-!/public/hero-video.mp4
+# backups and local media
+backups/
+Screenshot*.png
+

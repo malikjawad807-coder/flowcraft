@@ -1,0 +1,31 @@
+{
+  "name": "@flowcart/worker",
+  "version": "2.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@flowcart/db": "*",
+    "@flowcart/engine": "*",
+    "@flowcart/gmail": "*",
+    "@flowcart/llm": "*",
+    "@flowcart/nodes": "*",
+    "@flowcart/shared": "*",
+    "@flowcart/vault": "*",
+    "bullmq": "^5.8.5",
+    "dotenv": "^16.4.5",
+    "ioredis": "^6.0.0",
+    "pino": "^9.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,35 @@
+# Git & Documentation
+.git
+.gitignore
+.github
+docs
+*.md
+!README.md
+Screenshot*.png
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies & Build artifacts
+node_modules
+.next
+dist
+coverage
+*.tsbuildinfo
+
+# Tests & Tools
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+vitest.config.ts
+playwright.config.ts
+
+# Backups & Temp files
+backups
+*.log
+npm-debug.log*
+.tempmediaStorage
+.agents
+.gemini
