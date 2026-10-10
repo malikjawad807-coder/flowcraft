@@ -182,6 +182,43 @@ describe('Gmail Connection Subsystem Tests (Section 7 & 17.4)', () => {
     expect(mockDb.oauthStates.length).toBe(0);
   });
 
+  it('2b. GET /api/integrations/google/callback also works as an alias callback route', async () => {
+    const rawState = 'state_alias_test';
+    const stateHash = hashToken(rawState);
+    const codeVerifierEnc = vault.encrypt('mock_verifier_alias', 'usr_1:oauth_code_verifier');
+
+    mockDb.oauthStates.push({
+      stateHash,
+      userId: 'usr_1',
+      codeVerifierEnc,
+      purpose: 'gmail_connect',
+      expiresAt: new Date(Date.now() + 600000),
+    });
+
+    vi.spyOn(gmailPackage, 'exchangeCodeForTokens').mockResolvedValueOnce({
+      access_token: 'mock_access_token_alias',
+      refresh_token: 'mock_refresh_token_alias',
+      expiry_date: Date.now() + 3600000,
+      scope: 'https://www.googleapis.com/auth/gmail.send',
+    });
+
+    vi.spyOn(gmailPackage, 'getProfile').mockResolvedValueOnce({
+      emailAddress: 'bob.alias@gmail.com',
+      messagesTotal: 50,
+      threadsTotal: 25,
+      historyId: '2',
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/integrations/google/callback?code=google_auth_code_alias&state=${rawState}`,
+    });
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain('/settings/connections?connected=gmail');
+    expect(res.headers.location).toContain('bob.alias%40gmail.com');
+  });
+
   it('3. GET /api/connections lists user connections and redacts secrets', async () => {
     mockDb.users.push({ id: 'usr_1', email: 'user1@example.com', role: 'user' });
     const { cookie } = createTestSession('usr_1');
