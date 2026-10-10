@@ -107,16 +107,20 @@ flowcart.example.com {
 
 ### Step 5: Build and Start Containers
 ```bash
-docker compose -f deploy/docker-compose.yml up -d --build
+# Using npm script (recommended):
+npm run deploy:up
+
+# Or using docker compose directly:
+docker compose --env-file .env -f deploy/docker-compose.yml up -d --build
 ```
 
 ### Step 6: Verify Service Health & Migration Success
 ```bash
 # Verify container statuses (all should report healthy or running)
-docker compose -f deploy/docker-compose.yml ps
+docker compose --env-file .env -f deploy/docker-compose.yml ps
 
 # Check API logs to confirm automated database migrations ran
-docker compose -f deploy/docker-compose.yml logs api
+docker compose --env-file .env -f deploy/docker-compose.yml logs api
 ```
 Expected output:
 ```
@@ -141,7 +145,7 @@ All migrations executed successfully.
    ```
 6. Restart the API service to apply the registration freeze:
    ```bash
-   docker compose -f deploy/docker-compose.yml restart api
+   docker compose --env-file .env -f deploy/docker-compose.yml restart api
    ```
 
 ---
@@ -217,7 +221,7 @@ When rotating the primary database encryption key (`APP_ENCRYPTION_KEY`):
    ```
 5. **Restart Application Services**:
    ```bash
-   docker compose -f deploy/docker-compose.yml restart api worker
+   docker compose --env-file .env -f deploy/docker-compose.yml restart api worker
    ```
 
 ---
@@ -235,12 +239,12 @@ cd /opt/flowcart
 git pull origin main
 
 # 3. Build updated images and restart
-docker compose -f deploy/docker-compose.yml build
-docker compose -f deploy/docker-compose.yml up -d
+docker compose --env-file .env -f deploy/docker-compose.yml build
+docker compose --env-file .env -f deploy/docker-compose.yml up -d
 
 # 4. Verify system health
-docker compose -f deploy/docker-compose.yml ps
-docker compose -f deploy/docker-compose.yml logs api
+docker compose --env-file .env -f deploy/docker-compose.yml ps
+docker compose --env-file .env -f deploy/docker-compose.yml logs api
 ```
 
 ### Rollback Procedure
@@ -250,7 +254,7 @@ If an issue occurs after an update:
 git checkout v2.0.0
 
 # 2. Rebuild previous containers
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose --env-file .env -f deploy/docker-compose.yml up -d --build
 
 # 3. If database schema was modified, restore pre-update backup
 ./deploy/restore.sh backups/flowcart-PRE-UPDATE.dump
@@ -300,7 +304,7 @@ Adhere to these essential OS-level security configurations:
 6. **Log Verification & Privacy Check**:
    Search container logs to verify zero leakage of passwords, encryption keys, or email bodies:
    ```bash
-   docker compose -f deploy/docker-compose.yml logs | grep -iE 'bearer|sk-|password|refresh_token' || echo "Log check clean."
+   docker compose --env-file .env -f deploy/docker-compose.yml logs | grep -iE 'bearer|sk-|password|refresh_token' || echo "Log check clean."
    ```
 
 ---

@@ -35,4 +35,5 @@ next-env.d.ts
 # backups and local media
 backups/
 Screenshot*.png
+flowcraft/
 

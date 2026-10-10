@@ -16,9 +16,9 @@
     "test": "vitest run",
     "db:migrate": "npm run migrate --workspace=@flowcart/db",
     "rotate-keys": "tsx deploy/rotate-keys.ts",
-    "deploy:up": "docker compose -f deploy/docker-compose.yml up -d --build",
-    "deploy:down": "docker compose -f deploy/docker-compose.yml down",
-    "deploy:logs": "docker compose -f deploy/docker-compose.yml logs -f"
+    "deploy:up": "docker compose --env-file .env -f deploy/docker-compose.yml up -d --build",
+    "deploy:down": "docker compose --env-file .env -f deploy/docker-compose.yml down",
+    "deploy:logs": "docker compose --env-file .env -f deploy/docker-compose.yml logs -f"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
