@@ -28,6 +28,8 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     env_file: ../.env
+    environment:
+      API_URL: http://api:4000
     networks:
       - app
     logging:
@@ -42,6 +44,9 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-flowcart}:${POSTGRES_PASSWORD:-flowcart}@postgres:5432/${POSTGRES_DB:-flowcart}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-flowcart}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +67,9 @@ services:
       dockerfile: apps/worker/Dockerfile
     restart: unless-stopped
     env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-flowcart}:${POSTGRES_PASSWORD:-flowcart}@postgres:5432/${POSTGRES_DB:-flowcart}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-flowcart}@redis:6379
     depends_on:
       postgres:
         condition: service_healthy

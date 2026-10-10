@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { integrations, oauthStates, eq, and, gt } from '@flowcart/db';
 import { Vault } from '@flowcart/vault';
@@ -94,12 +94,14 @@ export const connectionRoutes: FastifyPluginAsync<ConnectionRoutesOptions> = asy
   });
 
   /**
-   * GET /api/connections/gmail/callback
-   * OAuth redirect callback from Google
+   * OAuth redirect callback from Google (supports both /api/connections/gmail/callback and /api/integrations/google/callback)
    */
-  app.get<{
-    Querystring: { code?: string; state?: string; error?: string };
-  }>('/api/connections/gmail/callback', async (req, reply) => {
+  const handleGmailCallback = async (
+    req: FastifyRequest<{
+      Querystring: { code?: string; state?: string; error?: string };
+    }>,
+    reply: FastifyReply
+  ) => {
     const { code, state, error } = req.query;
     const appUrl = opts.env.APP_URL;
 
@@ -227,7 +229,15 @@ export const connectionRoutes: FastifyPluginAsync<ConnectionRoutesOptions> = asy
         )}`
       );
     }
-  });
+  };
+
+  app.get<{
+    Querystring: { code?: string; state?: string; error?: string };
+  }>('/api/connections/gmail/callback', handleGmailCallback);
+
+  app.get<{
+    Querystring: { code?: string; state?: string; error?: string };
+  }>('/api/integrations/google/callback', handleGmailCallback);
 
   /**
    * POST /api/connections/:id/test
